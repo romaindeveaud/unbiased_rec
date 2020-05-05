@@ -3,10 +3,12 @@ import pandas as pd
 
 from joblib import Parallel, delayed
 
-import glob
-import os
-
 from collections import ChainMap
+from pathlib     import Path
+
+
+DATA_FOLDER = 'data'
+OUTPUT_FOLDER = 'datasets'
 
 def merge_dicts(*dict_args):
   """
@@ -48,9 +50,9 @@ def process_click_file(click_file,model,session2user):
 
   These interactions are stored into 3 numpy arrays that are serialised.
   """
-  day = os.path.basename(click_file).split('_')[0]
+  day = click_file.name.split('_')[0]
 
-  if os.path.isfile('datasets/'+model+'/'+day+'_user_ids.npy'):
+  if Path('datasets/'+model+'/'+day+'_user_ids.npy').is_file():
     return
 
   _df = pd.read_csv(click_file,sep=' ',names=['session_id','item_id','rank','score','click_timestamp'])
@@ -76,14 +78,14 @@ def process_click_file(click_file,model,session2user):
     item_ids = np.concatenate((item_ids, _temp.item_id.values))
     ratings  = np.concatenate((ratings, _temp.click_timestamp.values))
 
-  np.save('datasets/'+model+'/'+day+'_user_ids.npy',user_ids)
-  np.save('datasets/'+model+'/'+day+'_item_ids.npy',item_ids)
-  np.save('datasets/'+model+'/'+day+'_ratings.npy',ratings)
+  np.save(Path(OUTPUT_FOLDER + '/' + model + '/' + day + '_user_ids.npy'),user_ids)
+  np.save(Path(OUTPUT_FOLDER + '/' + model + '/' + day + '_item_ids.npy'),item_ids)
+  np.save(Path(OUTPUT_FOLDER + '/' + model + '/' + day + '_ratings.npy'),ratings)
 
 
-s2us = [ _get_user_from_session(session_file) for session_file in glob.glob('data/*_sessions.dat') ]
+s2us = [ _get_user_from_session(session_file) for session_file in Path(DATA_FOLDER).glob('*_sessions.dat') ]
 session2user = dict(ChainMap(*s2us))
 
 model = 'sequential_exposure_explicit'
 
-Parallel(n_jobs=7)(delayed(process_click_file)(click_file,model,session2user) for click_file in glob.glob('data/*_clicks.dat'))
+Parallel(n_jobs=7)(delayed(process_click_file)(click_file,model,session2user) for click_file in Path(DATA_FOLDER).glob('*_clicks.dat'))
