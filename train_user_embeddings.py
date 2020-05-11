@@ -35,20 +35,10 @@ def train(day,verbose):
 
 
 @click.command()
-#@click.option('--day','-d',is_flag=True)
 @click.option('--day','-d','day',default='20191119',type=str,show_default=True)
 @click.option('--verbose','-v','verbose',default=False,type=bool,show_default=True)
-#@click.option('--dump-corpus','-c','dump_corpus',is_flag=True)
-#@click.option('--train','-t',type=click.Choice(['lda','hdp','author']))
-#@click.option('--num-topics','-n','num_topics',default=10,type=int,show_default=True)
 def parse(day,verbose):
   train(day,verbose)
-#  if build:
-#    gensim_parse_corpus(dataset)
-#  if dump_corpus:
-#    gensim_build_corpus(dataset)
-#  if train:
-#    gensim_train(dataset,train,num_topics)
 
 if __name__ == '__main__':
   parse()
