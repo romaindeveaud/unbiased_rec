@@ -1,6 +1,8 @@
 import torch
 import click
 
+import config
+
 import numpy as np
 
 from spotlight.interactions import Interactions
@@ -10,7 +12,6 @@ from pathlib import Path
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-DATASET_PATH = './datasets/sequential_exposure_explicit_sample_top3k/'
 
 def train(user_ids,item_ids,ratings,num_dimensions,verbose):
   dataset = Interactions(
@@ -37,12 +38,12 @@ def train_all(num_dimensions,verbose):
   item_ids = []
   ratings  = []
 
-  for f in Path( DATASET_PATH ).glob('*_user_ids.npy'):
+  for f in Path( config.DATASET_PATH ).glob('*_user_ids.npy'):
     day = f.name.split('_')[0]
     
     _u = np.load(f)
-    _i = np.load( DATASET_PATH + day + '_item_ids.npy' )
-    _r = np.load( DATASET_PATH + day + '_ratings.npy' )
+    _i = np.load( config.DATASET_PATH + day + '_item_ids.npy' )
+    _r = np.load( config.DATASET_PATH + day + '_ratings.npy' )
 
     user_ids.append(_u)
     item_ids.append(_i)
@@ -53,13 +54,13 @@ def train_all(num_dimensions,verbose):
   ratings = np.concatenate(ratings)
 
   user_embeddings = train(cat_user_ids,cat_item_ids,ratings,num_dimensions,verbose)
-  np.save(Path(DATASET_PATH + 'all_pu_k'+str(num_dimensions)+'.npy'),user_embeddings)
+  np.save(Path(config.DATASET_PATH + 'all_pu_k'+str(num_dimensions)+'.npy'),user_embeddings)
 
 
 def train_single_day(day,num_dimensions,verbose):
-  user_ids = np.load(Path(DATASET_PATH + day + '_user_ids.npy'))
-  item_ids = np.load(Path(DATASET_PATH + day + '_item_ids.npy'))
-  ratings  = np.load(Path(DATASET_PATH + day + '_ratings.npy'))
+  user_ids = np.load(Path(config.DATASET_PATH + day + '_user_ids.npy'))
+  item_ids = np.load(Path(config.DATASET_PATH + day + '_item_ids.npy'))
+  ratings  = np.load(Path(config.DATASET_PATH + day + '_ratings.npy'))
 
   _, cat_user_ids = np.unique(user_ids,return_inverse=True)
   _, cat_item_ids = np.unique(item_ids,return_inverse=True)
@@ -77,10 +78,11 @@ def parse(train_all,day,dim,verbose):
   if not day and not train_all:
     print('Please specify a day for which user embeddings have to be trained, or train all days at once. Type --help for details.')
   elif day:
-    train(day,dim,verbose)
+    train_single_day(day,dim,verbose)
   elif train_all:
-    for f in Path(DATASET_PATH).glob('*_user_ids.npy'):
-      train(f.name.split('_')[0],dim,verbose)
+    train_all(dim,verbose)
+#    for f in Path(config.DATASET_PATH).glob('*_user_ids.npy'):
+#      train(f.name.split('_')[0],dim,verbose)
 
 if __name__ == '__main__':
   parse()

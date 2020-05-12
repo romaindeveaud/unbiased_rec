@@ -6,9 +6,7 @@ from joblib import Parallel, delayed
 from collections import ChainMap
 from pathlib     import Path
 
-
-DATA_FOLDER = 'data'
-OUTPUT_FOLDER = 'datasets'
+import config
 
 
 def _get_user_from_session(session_file):
@@ -76,12 +74,12 @@ def process_click_file(click_file,model,session2user,sample_users=3000):
     item_ids = np.concatenate((item_ids, _temp.item_id.values))
     ratings  = np.concatenate((ratings, _temp.click_timestamp.values))
 
-  np.save(Path(OUTPUT_FOLDER + '/' + model + '/' + day + '_user_ids.npy'),user_ids)
-  np.save(Path(OUTPUT_FOLDER + '/' + model + '/' + day + '_item_ids.npy'),item_ids)
-  np.save(Path(OUTPUT_FOLDER + '/' + model + '/' + day + '_ratings.npy'),ratings)
+  np.save(Path(config.DATASET_OUTPUT_FOLDER + '/' + model + '/' + day + '_user_ids.npy'),user_ids)
+  np.save(Path(config.DATASET_OUTPUT_FOLDER + '/' + model + '/' + day + '_item_ids.npy'),item_ids)
+  np.save(Path(config.DATASET_OUTPUT_FOLDER + '/' + model + '/' + day + '_ratings.npy'),ratings)
 
 
-s2us = [ _get_user_from_session(session_file) for session_file in Path(DATA_FOLDER).glob('*_sessions.dat') ]
+s2us = [ _get_user_from_session(session_file) for session_file in Path(config.DATA_FOLDER).glob('*_sessions.dat') ]
 session2user = dict(ChainMap(*s2us))
 
 #model = 'sequential_exposure_explicit'
