@@ -1,5 +1,6 @@
 import torch
 import click
+import pickle
 
 import config
 
@@ -49,11 +50,16 @@ def train_all(num_dimensions,verbose):
     item_ids.append(_i)
     ratings.append(_r)
 
-  _, cat_user_ids = np.unique(np.concatenate(user_ids),return_inverse=True)
   _, cat_item_ids = np.unique(np.concatenate(item_ids),return_inverse=True)
+  _, cat_user_ids = np.unique(np.concatenate(user_ids),return_inverse=True)
   ratings = np.concatenate(ratings)
 
   user_embeddings = train(cat_user_ids,cat_item_ids,ratings,num_dimensions,verbose)
+
+  id2real_user_id = { x:int(_[x]) for x in np.unique(cat_user_ids) }
+  with open(Path(config.DATASET_PATH + 'all_id2real_user_id.pkl'), 'wb') as out:
+    pickle.dump(id2real_user_id,out)
+
   np.save(Path(config.DATASET_PATH + 'all_pu_k'+str(num_dimensions)+'.npy'),user_embeddings)
 
 
@@ -62,11 +68,16 @@ def train_single_day(day,num_dimensions,verbose):
   item_ids = np.load(Path(config.DATASET_PATH + day + '_item_ids.npy'))
   ratings  = np.load(Path(config.DATASET_PATH + day + '_ratings.npy'))
 
-  _, cat_user_ids = np.unique(user_ids,return_inverse=True)
-  _, cat_item_ids = np.unique(item_ids,return_inverse=True)
+  _u, cat_user_ids = np.unique(user_ids,return_inverse=True)
+  _i, cat_item_ids = np.unique(item_ids,return_inverse=True)
 
   user_embeddings = train(cat_user_ids,cat_item_ids,ratings,num_dimensions,verbose)
-  np.save(Path(DATASET_PATH + day + '_pu_k'+num_dimensions+'.npy'),user_embeddings)
+
+  id2real_user_id = { x:int(_u[x]) for x in np.unique(cat_user_ids) }
+  with open(Path(config.DATASET_PATH + day + '_id2real_user_id.pkl'), 'wb') as out:
+    pickle.dump(id2real_user_id,out)
+
+  np.save(Path(config.DATASET_PATH + day + '_pu_k'+num_dimensions+'.npy'),user_embeddings)
 
 
 @click.command()
