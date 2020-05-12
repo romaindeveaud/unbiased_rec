@@ -10,8 +10,14 @@ Here a list:
 
 Several steps are required to estimate propensities of observation from our recommendation data.
 
-## 1. Training user embeddings
+### 0.1. Setting up a fresh environment
+I used `conda` as Python environment manager. The following command sets up a new environment and installs the required packages:
+```
+$ conda env create -f environment.yml
+$ conda activate unbiased_rec
+```
 
+## 1. Training user embeddings
 First, click data need to be pre-processed into user interactions that will serve as training data.
 ```
 $ python format_click_data.py
