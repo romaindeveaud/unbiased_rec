@@ -1,0 +1,3 @@
+[submodule "vendor/PyClick"]
+	path = vendor/PyClick
+	url = https://github.com/markovi/PyClick
