@@ -2,6 +2,8 @@
 This file is heavily inspired from https://github.com/markovi/PyClick/blob/master/pyclick/utils/YandexRelPredChallengeParser.py
 """
 
+import errno
+import os
 import pickle
 
 import numpy  as np
