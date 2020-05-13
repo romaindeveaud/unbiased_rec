@@ -8,8 +8,6 @@ import click
 import importlib
 import pickle
 
-embeddings_file = ''
-
 def cluster(num_clusters,model,f):
   user_embeddings = np.load(f)
 
@@ -32,12 +30,12 @@ def parse(num_clusters,model,emb_file,query_users):
     # After clustering, we serialise the groups of similar users for further use.
     #
     fileprefix = Path(embfile).name.split('_')[0]
-    id2real_user_id = pickle.load(open(Path(DATASET_PATH + fileprefix + '_id2real_user_id.pkl'), 'rb'))
+    id2real_user_id = pickle.load(open(Path(config.DATASET_PATH + fileprefix + '_id2real_user_id.pkl'), 'rb'))
 
     cluster_labels = model.labels_
     qu = [ id2real_user_id[np.where(cluster_labels == i)] for i in range(100) ]
 
-    with open(Path(DATASET_PATH + fileprefix + '_query_users.pkl'),'wb') as f:
+    with open(Path(config.DATASET_PATH + fileprefix + '_query_users.pkl'),'wb') as f:
       pickle.dump(qu,f)
 
 if __name__ == '__main__':

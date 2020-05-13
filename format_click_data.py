@@ -3,26 +3,10 @@ import pandas as pd
 
 from joblib import Parallel, delayed
 
-from collections import ChainMap
 from pathlib     import Path
 
 import config
-
-
-def _get_user_from_session(session_file):
-  """
-  Parse a *_session.dat file and retrieve the user id related to
-  each session id.
-  """
-  session2user = {}
-
-  with(open(session_file,'r')) as f:
-    for line in f:
-      atts = line.rstrip('\n').split(' ')
-
-      session2user[int(atts[0])] = int(atts[1])
-
-  return session2user
+from utils import utils
 
 
 
@@ -79,8 +63,7 @@ def process_click_file(click_file,model,session2user,sample_users=3000):
   np.save(Path(config.DATASET_OUTPUT_FOLDER + '/' + model + '/' + day + '_ratings.npy'),ratings)
 
 
-s2us = [ _get_user_from_session(session_file) for session_file in Path(config.DATA_FOLDER).glob('*_sessions.dat') ]
-session2user = dict(ChainMap(*s2us))
+session2user = utils.get_session2user()
 
 #model = 'sequential_exposure_explicit'
 model = 'sequential_exposure_explicit_sample_top3k'
