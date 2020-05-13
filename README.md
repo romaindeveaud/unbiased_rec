@@ -51,6 +51,37 @@ $ python train_user_embeddings.py --all --num_dim=100 -v
 Training is performed using the [Spotlight](https://github.com/maciejkula/spotlight) library; it will use the GPU if available.
 
 ## 2. Grouping similar users
+With user embeddings trained and serialised, the next step is to cluster them together in order to use these groups as "queries".
+This step is performed by the `clustering.py` script:
+```
+$ python clustering.py --help
+Usage: clustering.py [OPTIONS]
+
+Options:
+  -c, --num_clusters INTEGER      The number of user clusters.  [default: 100;
+                                  required]
+
+  -m, --model [AgglomerativeClustering|MiniBatchKMeans]
+                                  The clustering model.  [default:
+                                  AgglomerativeClustering; required]
+
+  -e, --embeddings_file TEXT      Path to the file containing the serialised
+                                  user embeddings.  [default: ./datasets/seque
+                                  ntial_exposure_explicit_sample_top3k/all_pu_
+                                  k50.npy; required]
+
+  -q, --output_query_users BOOLEAN
+                                  Whether the script should save clusters of
+                                  users to be further used as 'queries'.
+                                  [default: True]
+
+  --help                          Show this message and exit.
+```
+
+As an example, here is the command for clustering pre-trained embeddings into 200 clusters, and further serialising these clusters:
+```
+$ python clustering.py --num_clusters=200 --model=AgglomerativeClustering --embeddings_file=datasets/sequential_exposure_explicit_sample_top3k/all_pu_k50.npy --output_query_users
+```
 
 ## 3. Fitting a click model
 
