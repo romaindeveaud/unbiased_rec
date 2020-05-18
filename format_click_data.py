@@ -46,7 +46,7 @@ def process_click_file(click_file,model,session2user,sample_users=3000):
     # Accessing the dataframe by index is faster than grouping by session_id.
 
     # Identifying the index of the last click for the i-th session.
-    last_click_ = _df[i*49:i*49+49]['click_timestamp'].argmax()
+    last_click_ = _df[i*49:i*49+49]['click_timestamp'].idxmax()
 
     # Building a temporary dataframe containing the ranking up to the last
     # clicked document.
