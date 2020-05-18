@@ -50,7 +50,7 @@ def process_click_file(click_file,model,session2user,sample_users=3000):
 
     # Building a temporary dataframe containing the ranking up to the last
     # clicked document.
-    _temp = _df[i*49:i*49+49].drop(list(range(i*49+(last_click_+1),i*49+49)))
+    _temp = _df[i*49:i*49+49].drop(list(range(last_click_+1,i*49+49)))
     # Clicks are 1s, non-clicks are -1s.
     _temp.loc[_temp.click_timestamp > 0,'click_timestamp'] = 1
 
