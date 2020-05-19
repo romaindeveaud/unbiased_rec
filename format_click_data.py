@@ -68,4 +68,4 @@ session2user = utils.get_session2user()
 #model = 'sequential_exposure_explicit'
 model = 'sequential_exposure_explicit_sample_top3k'
 
-Parallel(n_jobs=7)(delayed(process_click_file)(click_file,model,session2user,3000) for click_file in Path(DATA_FOLDER).glob('*_clicks.dat'))
+Parallel(n_jobs=7)(delayed(process_click_file)(click_file,model,session2user,3000) for click_file in Path(config.DATA_FOLDER).glob('*_clicks.dat'))
