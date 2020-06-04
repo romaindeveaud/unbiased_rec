@@ -13,7 +13,6 @@ from lib.NeuralMatrixFactorization import BiLinearNet
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
 def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose):
   num_users = np.unique(user_ids).shape[0]
   num_items = np.unique(item_ids).shape[0]
@@ -27,6 +26,7 @@ def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose
       lr=1e-2
       )
   loss_function = torch.nn.BCEWithLogitsLoss()
+  loss_function.to(device)
 
   ratings[ratings < 0] = 0
 
@@ -34,9 +34,13 @@ def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose
     epoch_losses = []
 
     for i in range(0,len(user_ids),batch_size):
-      batch_user_ids = torch.from_numpy(user_ids[i:i+batch_size]).to(device)
-      batch_item_ids = torch.from_numpy(item_ids[i:i+batch_size]).to(device)
-      batch_ratings  = torch.from_numpy(ratings[i:i+batch_size]).to(device)
+      batch_user_ids = torch.from_numpy(user_ids[i:i+batch_size])
+      batch_item_ids = torch.from_numpy(item_ids[i:i+batch_size])
+      batch_ratings  = torch.from_numpy(ratings[i:i+batch_size])
+
+      batch_user_ids.to(device)
+      batch_item_ids.to(device)
+      batch_ratings.to(device)
 
       m.zero_grad()
 
@@ -51,7 +55,7 @@ def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose
     if verbose:
       print('{} Epoch {}: loss {}'.format(datetime.datetime.strftime(datetime.datetime.now(),"[%x %X]"),epoch, np.mean(epoch_losses)))
 
-  return m.user_embeddings.weight.data.to('cpu').numpy()
+  return m.user_embeddings.weight.data.cpu().numpy()
 
 
 def train_all(num_dimensions,num_epochs,batch_size,verbose):

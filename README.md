@@ -56,7 +56,7 @@ As an example, here is the command to train embeddings over all the pre-processe
 ```
 $ python train_user_embeddings.py --all --num_dim=32 --num_epochs=10 --batch_size=256  -v
 ```
-Training is performed using the [Spotlight](https://github.com/maciejkula/spotlight) library; it will use the GPU if available.
+Training will use the GPU if available.
 
 ## 2. Grouping similar users
 With user embeddings trained and serialised, the next step is to cluster them together in order to use these groups as "queries".
