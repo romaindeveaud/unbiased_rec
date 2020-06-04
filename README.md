@@ -31,22 +31,30 @@ $ python train_user_embeddings.py --help
 Usage: train_user_embeddings.py [OPTIONS]
 
 Options:
-  -a, --all              Train user embeddings for all days available in data.
-  -d, --day TEXT         Train embeddings for a single day. Provide a date to
-                         the yyyymmdd format. Example: 20191119
+  -a, --all                 Train user embeddings for all days available in
+                            data.
 
-  -k, --num_dim INTEGER  The number of dimensions of the embeddings.
-                         [default: 50; required]
+  -d, --day TEXT            Train embeddings for a single day. Provide a date
+                            to the yyyymmdd format. Example: 20191119
 
-  -v, --verbose          [default: False]
-  --help                 Show this message and exit.
+  -k, --num_dim INTEGER     The number of dimensions of the embeddings.
+                            [default: 32; required]
+
+  -e, --num_epochs INTEGER  The number of training epochs.  [default: 10;
+                            required]
+
+  -b, --batch_size INTEGER  Mini-batch size for each iteration of SGD.
+                            [default: 256; required]
+
+  -v, --verbose             [default: False]
+  --help                    Show this message and exit.
 ```
 Use the `-d` option if you want to produce embeddings only for a single day.
 To train on all data (recommended), use the `-a` option.
 
 As an example, here is the command to train embeddings over all the pre-processed data stored in `DATASET_PATH`, with embeddings of size `100`, with a verbose output:
 ```
-$ python train_user_embeddings.py --all --num_dim=100 -v
+$ python train_user_embeddings.py --all --num_dim=32 --num_epochs=10 --batch_size=256  -v
 ```
 Training is performed using the [Spotlight](https://github.com/maciejkula/spotlight) library; it will use the GPU if available.
 
