@@ -74,6 +74,7 @@ def train_all(num_dimensions,num_epochs,batch_size,verbose):
     item_ids.append(_i)
     ratings.append(_r)
 
+
   _, cat_item_ids = np.unique(np.concatenate(item_ids),return_inverse=True)
   _, cat_user_ids = np.unique(np.concatenate(user_ids),return_inverse=True)
   ratings = np.concatenate(ratings)
@@ -105,18 +106,18 @@ def train_single_day(day,num_dimensions,num_epochs,batch_size,verbose):
 
 
 @click.command()
-@click.option('--all','-a','train_all',type=bool,is_flag=True,help='Train user embeddings for all days available in data.')
+@click.option('--all','-a','tr_all',type=bool,is_flag=True,help='Train user embeddings for all days available in data.')
 @click.option('--day','-d','day',type=str,help='Train embeddings for a single day. Provide a date to the yyyymmdd format. Example: 20191119')
 @click.option('--num_dim','-k','dim',type=int,help='The number of dimensions of the embeddings.',default=32,show_default=True,required=True)
 @click.option('--num_epochs','-e','epochs',type=int,help='The number of training epochs.', default=10, show_default=True, required=True)
 @click.option('--batch_size','-b','batch_size',type=int,help='Mini-batch size for each iteration of SGD.', default=256, show_default=True, required=True)
 @click.option('--verbose','-v','verbose',default=False,is_flag=True,type=bool,show_default=True)
-def parse(train_all,day,dim,epochs,batch_size,verbose):
-  if not day and not train_all:
+def parse(tr_all,day,dim,epochs,batch_size,verbose):
+  if not day and not tr_all:
     print('Please specify a day for which user embeddings have to be trained, or train all days at once. Type --help for details.')
   elif day:
     train_single_day(day,dim,epochs,batch_size,verbose)
-  elif train_all:
+  elif tr_all:
     train_all(dim,epochs,batch_size,verbose)
 
 if __name__ == '__main__':
