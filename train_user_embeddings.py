@@ -1,36 +1,60 @@
 import torch
+import numpy as np
+
 import click
 import pickle
 
+import datetime
 import config
 
-import numpy as np
-
-from spotlight.interactions import Interactions
-from spotlight.factorization.explicit import ExplicitFactorizationModel
-
 from pathlib import Path
+
+from lib.NeuralMatrixFactorization import BiLinearNet
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def train(user_ids,item_ids,ratings,num_dimensions,verbose):
-  dataset = Interactions(
-    np.array(user_ids,dtype=np.int32),
-    np.array(item_ids,dtype=np.int32),
-    ratings=np.array(ratings,dtype=np.float32)
-  )
+def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose):
+  num_users = np.unique(user_ids).shape[0]
+  num_items = np.unique(item_ids).shape[0]
 
-  is_cuda_available = False if device.type == 'cpu' else True
+  m = BiLinearNet(num_users,num_items,num_dimensions)
+  m.to(device)
 
-  m = ExplicitFactorizationModel(loss='logistic',use_cuda=is_cuda_available,embedding_dim=num_dimensions)
-  m.fit(dataset,verbose=verbose)
+  optimiser = torch.optim.Adam(
+      m.parameters(),
+      weight_decay=0,
+      lr=1e-2
+      )
+  loss_function = torch.nn.BCEWithLogitsLoss()
 
-  user_embeddings = m._net.user_embeddings.weight.detach().cpu().numpy()
+  ratings[ratings < 0] = 0
 
-  return user_embeddings
+  for epoch in range(num_epochs):
+    epoch_losses = []
 
-def train_all(num_dimensions,verbose):
+    for i in range(0,len(user_ids),batch_size):
+      batch_user_ids = torch.from_numpy(user_ids[i:i+batch_size]).to(device)
+      batch_item_ids = torch.from_numpy(item_ids[i:i+batch_size]).to(device)
+      batch_ratings  = torch.from_numpy(ratings[i:i+batch_size]).to(device)
+
+      m.zero_grad()
+
+      y_pred = m(batch_user_ids,batch_item_ids)
+
+      loss = loss_function(y_pred,batch_ratings)
+      epoch_losses.append(loss.item())
+      loss.backward()
+
+      optimiser.step()
+
+    if verbose:
+      print('{} Epoch {}: loss {}'.format(datetime.datetime.strftime(datetime.datetime.now(),"[%x %X]"),epoch, np.mean(epoch_losses)))
+
+  return m.user_embeddings.weight.data.to('cpu').numpy()
+
+
+def train_all(num_dimensions,num_epochs,batch_size,verbose):
   """
   Concatenate the interactions for the entire dataset, before
   feeding it to the bilinear network.
@@ -54,7 +78,7 @@ def train_all(num_dimensions,verbose):
   _, cat_user_ids = np.unique(np.concatenate(user_ids),return_inverse=True)
   ratings = np.concatenate(ratings)
 
-  user_embeddings = train(cat_user_ids,cat_item_ids,ratings,num_dimensions,verbose)
+  user_embeddings = train(cat_user_ids,cat_item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose)
 
   id2real_user_id = { x:int(_[x]) for x in np.unique(cat_user_ids) }
   with open(Path(config.DATASET_PATH + 'all_id2real_user_id.pkl'), 'wb') as out:
@@ -63,7 +87,7 @@ def train_all(num_dimensions,verbose):
   np.save(Path(config.DATASET_PATH + 'all_pu_k'+str(num_dimensions)+'.npy'),user_embeddings)
 
 
-def train_single_day(day,num_dimensions,verbose):
+def train_single_day(day,num_dimensions,num_epochs,batch_size,verbose):
   user_ids = np.load(Path(config.DATASET_PATH + day + '_user_ids.npy'))
   item_ids = np.load(Path(config.DATASET_PATH + day + '_item_ids.npy'))
   ratings  = np.load(Path(config.DATASET_PATH + day + '_ratings.npy'))
@@ -71,29 +95,29 @@ def train_single_day(day,num_dimensions,verbose):
   _u, cat_user_ids = np.unique(user_ids,return_inverse=True)
   _i, cat_item_ids = np.unique(item_ids,return_inverse=True)
 
-  user_embeddings = train(cat_user_ids,cat_item_ids,ratings,num_dimensions,verbose)
+  user_embeddings = train(cat_user_ids,cat_item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose)
 
   id2real_user_id = { x:int(_u[x]) for x in np.unique(cat_user_ids) }
   with open(Path(config.DATASET_PATH + day + '_id2real_user_id.pkl'), 'wb') as out:
     pickle.dump(id2real_user_id,out)
 
-  np.save(Path(config.DATASET_PATH + day + '_pu_k'+num_dimensions+'.npy'),user_embeddings)
+  np.save(Path(config.DATASET_PATH + day + '_pu_k'+str(num_dimensions)+'.npy'),user_embeddings)
 
 
 @click.command()
 @click.option('--all','-a','train_all',type=bool,is_flag=True,help='Train user embeddings for all days available in data.')
 @click.option('--day','-d','day',type=str,help='Train embeddings for a single day. Provide a date to the yyyymmdd format. Example: 20191119')
-@click.option('--num_dim','-k','dim',type=int,help='The number of dimensions of the embeddings.',default=50,show_default=True,required=True)
+@click.option('--num_dim','-k','dim',type=int,help='The number of dimensions of the embeddings.',default=32,show_default=True,required=True)
+@click.option('--num_epochs','-e','epochs',type=int,help='The number of training epochs.', default=10, show_default=True, required=True)
+@click.option('--batch_size','-b','batch_size',type=int,help='Mini-batch size for each iteration of SGD.', default=256, show_default=True, required=True)
 @click.option('--verbose','-v','verbose',default=False,is_flag=True,type=bool,show_default=True)
-def parse(train_all,day,dim,verbose):
+def parse(train_all,day,dim,epochs,batch_size,verbose):
   if not day and not train_all:
     print('Please specify a day for which user embeddings have to be trained, or train all days at once. Type --help for details.')
   elif day:
-    train_single_day(day,dim,verbose)
+    train_single_day(day,dim,epochs,batch_size,verbose)
   elif train_all:
-    train_all(dim,verbose)
-#    for f in Path(config.DATASET_PATH).glob('*_user_ids.npy'):
-#      train(f.name.split('_')[0],dim,verbose)
+    train_all(dim,epochs,batch_size,verbose)
 
 if __name__ == '__main__':
   parse()

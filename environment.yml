@@ -1,17 +1,17 @@
 name: unbiased_rec
 channels:
-  - maciejkula
   - pytorch
   - conda-forge
   - defaults
 dependencies:
   - python=3.6.10
   - click
+  - cudatoolkit=10.2
   - numpy
   - pandas
   - python-dateutil
   - pickleshare
-  - spotlight
   - scikit-learn
-  - pytorch
+  - pytorch=1.4
   - scipy
+  - torchvision
