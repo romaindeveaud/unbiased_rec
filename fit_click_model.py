@@ -10,7 +10,7 @@ from pathlib import Path
 
 from utils.AIRS_click_model_parser import AIRSClickModelParser
 
-from pyclick.utils.Utils import Utils as pc_utils
+from vendor.PyClick.pyclick.utils.Utils import Utils as pc_utils
 
 modules = {
     'UBM' : 'pyclick.click_models.UBM',
@@ -35,11 +35,13 @@ def fit_click_model(search_sessions,cm):
   test_queries = pc_utils.get_unique_queries(test_sessions)
 
   module = importlib.import_module(modules[cm])
-  click_model = getattr(module, cm)
+  click_model = getattr(module, cm)()
+  
+  click_model.train(search_sessions=train_sessions)
 
-  click_model.train(train_sessions)
+  print(click_model.params)
 
-  with open(Path( config.DATASET_OUTPUT_FOLDER + 'click_models/' + cm + '.pkl' )) as out:
+  with open(Path( config.DATASET_OUTPUT_FOLDER + 'click_models/' + cm + '.pkl' ),'wb') as out:
     pickle.dump(click_model,out)
 
 

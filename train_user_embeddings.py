@@ -15,7 +15,7 @@ from lib.NeuralMatrixFactorization import BiLinearNet
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 devices = [ 'cuda:{}'.format(i) for i in range(torch.cuda.device_count()) ]
 
-def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose):
+def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose,train_split=.75):
   num_users = np.unique(user_ids).shape[0]
   num_items = np.unique(item_ids).shape[0]
 
@@ -36,25 +36,33 @@ def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose
   item_ids_tensor = torch.from_numpy(item_ids).to(device)
   ratings_tensor  = torch.from_numpy(ratings).to(device)
 
+  train_test_split = int(user_ids_tensor.size(0) * train_split)
+
+  shuffled_indices = torch.randperm(user_ids_tensor.size(0))
+  train_indices = shuffled_indices[:train_test_split]
+  test_indices  = shuffled_indices[train_test_split:]
+
+  test_interactions = {
+      'user_ids' : user_ids_tensor[test_indices],
+      'item_ids' : item_ids_tensor[test_indices],
+      'ratings'  : ratings_tensor[test_indices]
+      }
+
+  user_ids_tensor = user_ids_tensor[train_indices]
+  item_ids_tensor = item_ids_tensor[train_indices]
+  ratings_tensor  = ratings_tensor[train_indices]
+
+  m.train()
+
   for epoch in range(num_epochs):
     epoch_losses = []
 
-    for i in range(0,len(user_ids),batch_size):
-      #batch_user_ids = torch.from_numpy(user_ids[i:i+batch_size]).to(device)
-      #batch_item_ids = torch.from_numpy(item_ids[i:i+batch_size]).to(device)
-      #batch_ratings  = torch.from_numpy(ratings[i:i+batch_size]).to(device)
+    for i in range(0,user_ids_tensor.size(0),batch_size):
       batch_user_ids = user_ids_tensor[i:i+batch_size]
       batch_item_ids = item_ids_tensor[i:i+batch_size]
       batch_ratings  = ratings_tensor[i:i+batch_size]
 
-#      if verbose:
-#          print('{} After variables.'.format(datetime.datetime.strftime(datetime.datetime.now(),"[%x %X]")),batch_user_ids[0:10].size())
-
-      #batch_user_ids.to(device)
-      #batch_item_ids.to(device)
-      #batch_ratings.to(device)
-
-      m.zero_grad()
+      optimiser.zero_grad()
 
       y_pred = m(batch_user_ids,batch_item_ids)
 
@@ -66,6 +74,22 @@ def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose
 
     if verbose:
       print('{} Epoch {}: loss {}'.format(datetime.datetime.strftime(datetime.datetime.now(),"[%x %X]"),epoch, np.mean(epoch_losses)))
+
+
+  # Test the embeddings quality on held-out interactions
+  m.eval()
+  y_test_pred = m(test_interactions['user_ids'],test_interactions['item_ids'])
+  
+  mse_loss = torch.nn.MSELoss()
+  test_mse = mse_loss(torch.sigmoid(y_test_pred),test_interactions['ratings'])
+  test_bce = loss_function(y_test_pred,test_interactions['ratings'])
+
+  if verbose:
+    print("Test MSE: {} | Test BCE: {}".format(test_mse,test_bce))
+
+  with open(Path('output/{}k.res'.format(num_dimensions)),'w') as f:
+    f.write('{},{}'.format(test_mse,test_bce))
+
 
   return m.user_embeddings.weight.data.cpu().numpy()
 
