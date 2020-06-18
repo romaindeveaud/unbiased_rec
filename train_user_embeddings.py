@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import numpy as np
 
 import click
@@ -12,6 +13,7 @@ from pathlib import Path
 from lib.NeuralMatrixFactorization import BiLinearNet
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+devices = [ 'cuda:{}'.format(i) for i in range(torch.cuda.device_count()) ]
 
 def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose):
   num_users = np.unique(user_ids).shape[0]
@@ -30,17 +32,27 @@ def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose
 
   ratings[ratings < 0] = 0
 
+  user_ids_tensor = torch.from_numpy(user_ids).to(device)
+  item_ids_tensor = torch.from_numpy(item_ids).to(device)
+  ratings_tensor  = torch.from_numpy(ratings).to(device)
+
   for epoch in range(num_epochs):
     epoch_losses = []
 
     for i in range(0,len(user_ids),batch_size):
-      batch_user_ids = torch.from_numpy(user_ids[i:i+batch_size])
-      batch_item_ids = torch.from_numpy(item_ids[i:i+batch_size])
-      batch_ratings  = torch.from_numpy(ratings[i:i+batch_size])
+      #batch_user_ids = torch.from_numpy(user_ids[i:i+batch_size]).to(device)
+      #batch_item_ids = torch.from_numpy(item_ids[i:i+batch_size]).to(device)
+      #batch_ratings  = torch.from_numpy(ratings[i:i+batch_size]).to(device)
+      batch_user_ids = user_ids_tensor[i:i+batch_size]
+      batch_item_ids = item_ids_tensor[i:i+batch_size]
+      batch_ratings  = ratings_tensor[i:i+batch_size]
 
-      batch_user_ids.to(device)
-      batch_item_ids.to(device)
-      batch_ratings.to(device)
+#      if verbose:
+#          print('{} After variables.'.format(datetime.datetime.strftime(datetime.datetime.now(),"[%x %X]")),batch_user_ids[0:10].size())
+
+      #batch_user_ids.to(device)
+      #batch_item_ids.to(device)
+      #batch_ratings.to(device)
 
       m.zero_grad()
 
@@ -67,6 +79,10 @@ def train_all(num_dimensions,num_epochs,batch_size,verbose):
   item_ids = []
   ratings  = []
 
+  if verbose:
+    print('{} Loading interaction data...'.format(datetime.datetime.strftime(datetime.datetime.now(),"[%x %X]")))
+
+
   for f in Path( config.DATASET_PATH ).glob('*_user_ids.npy'):
     day = f.name.split('_')[0]
     
@@ -82,6 +98,9 @@ def train_all(num_dimensions,num_epochs,batch_size,verbose):
   _, cat_item_ids = np.unique(np.concatenate(item_ids),return_inverse=True)
   _, cat_user_ids = np.unique(np.concatenate(user_ids),return_inverse=True)
   ratings = np.concatenate(ratings)
+
+  if verbose:
+    print('{} Done...'.format(datetime.datetime.strftime(datetime.datetime.now(),"[%x %X]")))
 
   user_embeddings = train(cat_user_ids,cat_item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose)
 

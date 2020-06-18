@@ -29,11 +29,12 @@ def parse(num_clusters,model,emb_file,query_users):
   if query_users:
     # After clustering, we serialise the groups of similar users for further use.
     #
-    fileprefix = Path(embfile).name.split('_')[0]
+    fileprefix = Path(emb_file).name.split('_')[0]
     id2real_user_id = pickle.load(open(Path(config.DATASET_PATH + fileprefix + '_id2real_user_id.pkl'), 'rb'))
 
     cluster_labels = model.labels_
-    qu = [ id2real_user_id[np.where(cluster_labels == i)] for i in range(100) ]
+    # [23,5,23,6,87,...
+    qu = [ [ id2real_user_id[user_id] for user_id in  np.where(cluster_labels == i)[0] if user_id in id2real_user_id ] for i in range(num_clusters) ]
 
     with open(Path(config.DATASET_PATH + fileprefix + '_query_users.pkl'),'wb') as f:
       pickle.dump(qu,f)

@@ -12,6 +12,6 @@ dependencies:
   - python-dateutil
   - pickleshare
   - scikit-learn
-  - pytorch=1.4
+  - pytorch
   - scipy
   - torchvision
