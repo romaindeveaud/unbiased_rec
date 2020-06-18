@@ -87,8 +87,8 @@ def train(user_ids,item_ids,ratings,num_dimensions,num_epochs,batch_size,verbose
   if verbose:
     print("Test MSE: {} | Test BCE: {}".format(test_mse,test_bce))
 
-  with open(Path('output/{}k.res'.format(num_dimensions)),'w') as f:
-    f.write('{},{}'.format(test_mse,test_bce))
+  with open(Path('output/{}k.res'.format(num_dimensions)),'a+') as f:
+    f.write('{},{}\n'.format(test_mse,test_bce))
 
 
   return m.user_embeddings.weight.data.cpu().numpy()
