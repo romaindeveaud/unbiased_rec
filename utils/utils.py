@@ -3,6 +3,7 @@ import config
 from pathlib     import Path
 from collections import ChainMap
 
+
 def _get_user_from_session(session_file):
   """
   Parse a *_session.dat file and retrieve the user id related to
@@ -17,6 +18,7 @@ def _get_user_from_session(session_file):
       session2user[int(atts[0])] = int(atts[1])
 
   return session2user
+
 
 def get_session2user():
   s2us = [ _get_user_from_session(session_file) for session_file in Path(config.DATA_FOLDER).glob('*_sessions.dat') ]
