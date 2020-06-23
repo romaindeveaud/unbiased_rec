@@ -4,6 +4,8 @@ import pandas as pd
 from pathlib import Path
 from collections import Counter
 
+from joblib import Parallel, delayed
+
 import config
 import click
 import pickle
@@ -61,6 +63,23 @@ def train_collection():
     pickle.dump(collection_lm, f)
 
 
+def train_query(query_id, queries_positive_docs, queries_negative_docs, doc_word_counts, collection_lm):
+  pos_query_lm, nb_pos_words = _build_query_lm(queries_positive_docs[query_id], doc_word_counts)
+  neg_query_lm, nb_neg_words = _build_query_lm(queries_negative_docs[query_id], doc_word_counts)
+
+  for word, ips_count in pos_query_lm.items():
+    # compute the lm probability with Dirichlet smoothing
+    pos_query_lm[word] = (pos_query_lm[word] + config.DIRICHLET_MU * collection_lm[word]) / \
+                         (nb_pos_words + config.DIRICHLET_MU)
+    neg_query_lm[word] = (neg_query_lm[word] + config.DIRICHLET_MU * collection_lm[word]) / \
+                         (nb_neg_words + config.DIRICHLET_MU)
+
+  with open(config.DATASET_OUTPUT_FOLDER + 'query_lms/query' + str(query_id) + '_pos_lm.pkl', 'wb') as f:
+    pickle.dump(pos_query_lm, f)
+  with open(config.DATASET_OUTPUT_FOLDER + 'query_lms/query' + str(query_id) + '_neg_lm.pkl', 'wb') as f:
+    pickle.dump(neg_query_lm, f)
+
+
 def train_all_queries(num_workers):
   user2query = {
     x: i for i, a in enumerate(np.load(Path(config.DATASET_PATH + 'all_query_users.pkl'), allow_pickle=True))
@@ -103,21 +122,24 @@ def train_all_queries(num_workers):
   doc_word_counts = _get_docs_word_counts()
   collection_lm   = pickle.load(open(Path(config.DATASET_OUTPUT_FOLDER + 'collection_lm.pkl'), 'rb'))
 
-  for i in range(num_queries):
-    pos_query_lm, nb_pos_words = _build_query_lm(queries_positive_docs[i], doc_word_counts)
-    neg_query_lm, nb_neg_words = _build_query_lm(queries_negative_docs[i], doc_word_counts)
+  Parallel(n_jobs=-1)(delayed(train_query)(query_id, queries_positive_docs, queries_negative_docs, doc_word_counts,
+                                           collection_lm) for query_id in range(num_queries))
 
-    for word, ips_count in pos_query_lm.items():
-      # compute the lm probability with Dirichlet smoothing
-      pos_query_lm[word] = (pos_query_lm[word] + config.DIRICHLET_MU*collection_lm[word]) / \
-                           (nb_pos_words + config.DIRICHLET_MU)
-      neg_query_lm[word] = (neg_query_lm[word] + config.DIRICHLET_MU*collection_lm[word]) / \
-                           (nb_neg_words + config.DIRICHLET_MU)
-
-    with open(config.DATASET_OUTPUT_FOLDER + 'query_lms/query' + str(i) + '_pos_lm.pkl', 'wb') as f:
-      pickle.dump(pos_query_lm, f)
-    with open(config.DATASET_OUTPUT_FOLDER + 'query_lms/query' + str(i) + '_neg_lm.pkl', 'wb') as f:
-      pickle.dump(neg_query_lm, f)
+  # for i in range(num_queries):
+  #   pos_query_lm, nb_pos_words = _build_query_lm(queries_positive_docs[i], doc_word_counts)
+  #   neg_query_lm, nb_neg_words = _build_query_lm(queries_negative_docs[i], doc_word_counts)
+  #
+  #   for word, ips_count in pos_query_lm.items():
+  #     # compute the lm probability with Dirichlet smoothing
+  #     pos_query_lm[word] = (pos_query_lm[word] + config.DIRICHLET_MU*collection_lm[word]) / \
+  #                          (nb_pos_words + config.DIRICHLET_MU)
+  #     neg_query_lm[word] = (neg_query_lm[word] + config.DIRICHLET_MU*collection_lm[word]) / \
+  #                          (nb_neg_words + config.DIRICHLET_MU)
+  #
+  #   with open(config.DATASET_OUTPUT_FOLDER + 'query_lms/query' + str(i) + '_pos_lm.pkl', 'wb') as f:
+  #     pickle.dump(pos_query_lm, f)
+  #   with open(config.DATASET_OUTPUT_FOLDER + 'query_lms/query' + str(i) + '_neg_lm.pkl', 'wb') as f:
+  #     pickle.dump(neg_query_lm, f)
 
 
 @click.command()
