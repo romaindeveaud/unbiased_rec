@@ -1,6 +1,6 @@
 import numpy as np
 
-DATASET_PATH = './datasets/sequential_exposure_explicit_sample_top3000k/'
+DATASET_PATH = './datasets/sequential_exposure_explicit_sample_top3000/'
 
 DATA_FOLDER = 'data/'
 DATASET_OUTPUT_FOLDER = 'datasets/'
