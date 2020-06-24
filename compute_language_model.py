@@ -39,7 +39,7 @@ def _get_docs_word_counts():
 
   for doc_id, g in _df.groupby('doc_id'):
     if doc_id not in doc_words_counts:
-      doc_words_counts[doc_id] = Counter({})
+      doc_words_counts[doc_id] = {}
 
     _w, _c = np.unique(g.word_id.values, return_counts=True)
 
@@ -53,11 +53,21 @@ def _get_docs_word_counts():
 
 
 def train_collection():
-  collection_lm = sum([v for d, v in _get_docs_word_counts().items()], Counter())
-  collection_len = sum(collection_lm.values())
+  collection_lm = {}
+  collection_len = 0.0
+
+  for doc, word_counts in _get_docs_word_counts().items():
+   for w, c in word_counts.items():
+     if w not in collection_lm:
+       collection_lm[w] = 0.0
+
+     collection_lm[w] += c
+     collection_len += c
 
   for word, count in collection_lm.items():
     collection_lm[word] /= collection_len
+
+  print(collection_lm[1])
 
   with open(config.DATASET_OUTPUT_FOLDER + 'collection_lm.pkl', 'wb') as f:
     pickle.dump(collection_lm, f)
@@ -141,14 +151,17 @@ def train_all_queries(num_workers):
   #   with open(config.DATASET_OUTPUT_FOLDER + 'query_lms/query' + str(i) + '_neg_lm.pkl', 'wb') as f:
   #     pickle.dump(neg_query_lm, f)
 
+import datetime
 
 @click.command()
 @click.option('--collection', '-c', 'collection', type=bool, is_flag=True, default=False)
 @click.option('--query', '-q', 'query', type=str)
 @click.option('--num_workers', '-n', 'num_workers', type=int, default=1)
 def parse(collection, query, num_workers):
+  start = datetime.datetime.now()
   if collection:
     train_collection()
+    print(datetime.datetime.now() - start)
   elif query:
     if query == 'all':
       train_all_queries(num_workers)
