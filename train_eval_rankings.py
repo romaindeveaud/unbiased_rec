@@ -16,8 +16,11 @@ from lib.NeuralMatrixFactorization import BiLinearNet
 devices = ['cuda:{}'.format(i) for i in range(torch.cuda.device_count())]
 
 
-def _get_session_rankings():
-  return np.concatenate([pickle.load(open(fpath, 'rb')) for fpath in sorted(Path(config.DATASET_PATH + 'session_grouped').glob('*.pkl'))])
+def _get_session_rankings(num_users, fraction_top_users):
+  return np.concatenate([pickle.load(open(fpath, 'rb')) for fpath in
+                         sorted(Path(config.DATASET_OUTPUT_FOLDER +
+                                     'sequential_exposure_explicit_sample_{}/session_grouped_{}'.format(num_users,
+                                                                                                        fraction_top_users)).glob('*.pkl'))])
   #return { fpath.name.split('.')[0]:pickle.load(open(fpath, 'rb')) for fpath in Path(config.DATASET_PATH + 'session_grouped').glob('*.pkl') }
 
 
@@ -67,10 +70,11 @@ def evaluate(model, test, loss_function, batch_size, device, writer, step):
   return losses
 
 
-def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, train_test_split=.75):
+def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, train_test_split=.75, num_users_sample=10000,
+              fraction_top_users=0.66):
   device = torch.device(devices[gpu_index] if torch.cuda.is_available() else 'cpu')
 
-  session_rankings = _get_session_rankings()
+  session_rankings = _get_session_rankings(num_users_sample, fraction_top_users)
 
   num_users, num_items = _get_dataset_stats(session_rankings)
 
