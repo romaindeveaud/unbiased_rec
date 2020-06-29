@@ -59,7 +59,7 @@ def evaluate(model, test, loss_function, batch_size, device, writer, step):
 
     y_hat = model(test_batch_users, test_batch_items)
 
-    loss = loss_function(y_hat, test_batch_labels)
+    loss = loss_function(y_hat, test_batch_labels.double())
     losses.append(loss.item())
 
     writer.add_scalar('Loss/test', loss.item(), step)
@@ -112,18 +112,20 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, train_tes
     weight_decay=0,
     lr=3e-4
   )
-  #loss_function = torch.nn.MSELoss()
-  loss_function = torch.nn.BCEWithLogitsLoss()#pos_weight=train_rankings.pos_weight)
+  loss_function = torch.nn.MSELoss()
+  #loss_function = torch.nn.BCEWithLogitsLoss()#pos_weight=train_rankings.pos_weight)
   loss_function.to(device)
 
-  writer = SummaryWriter('output/runs/BCE-loss-no-weighting')
+  writer = SummaryWriter('output/runs/{}-sample-weighting-{}users-{}top'.format(loss_function.__str__(),
+                                                                                num_users_sample,
+                                                                                fraction_top_users))
 
   step = 0
   test_step = 0
   for epoch in range(num_epochs):
     #sampler = torch.utils.data.sampler.WeightedRandomSampler(torch.empty(train_rankings.len).random_(10), batch_size)
-    #sampler = torch.utils.data.sampler.WeightedRandomSampler(train_rankings.sampler_weights, train_rankings.len)
-    trainloader = torch.utils.data.DataLoader(train_rankings, batch_size=batch_size)#, sampler=sampler)#, shuffle=True)
+    sampler = torch.utils.data.sampler.WeightedRandomSampler(train_rankings.sampler_weights, train_rankings.len)
+    trainloader = torch.utils.data.DataLoader(train_rankings, batch_size=batch_size, sampler=sampler)#, shuffle=True)
 
     running_loss = 0.0
     for i, batch in enumerate(trainloader, 1):
@@ -134,7 +136,7 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, train_tes
       optimiser.zero_grad()
 
       y_hat = m(batch_users, batch_items)
-      loss = loss_function(y_hat, batch_labels)
+      loss = loss_function(y_hat, batch_labels.float())
 
       loss.backward()
       optimiser.step()
