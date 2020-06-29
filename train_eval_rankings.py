@@ -75,7 +75,7 @@ def evaluate(model, test, batch_size, device, writer, step):
 
 
 def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weighted_sampler, unbiased,
-              train_test_split=.75, num_users_sample=10000, fraction_top_users=0.66):
+              num_users_sample=10000, fraction_top_users=0.66, train_test_split=.75):
   device = torch.device(devices[gpu_index] if torch.cuda.is_available() else 'cpu')
 
   session_rankings = _get_session_rankings(num_users_sample, fraction_top_users)
@@ -191,9 +191,16 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weight
 @click.option('--unbiased', '-u', 'unbiased', type=bool, is_flag=True, default=False,
               help='Set the flag to perform an IPS weighted training, leading to unbiased recommendations.',
               show_default=True)
-def parse(model, num_epochs, dim, batch_size, gpu_index, test, weighted_sampler, unbiased):
+@click.option('--num_sampled_users', '-n', 'num_sampled_users', type=int, default=10000,
+              help='Number of users to sample.',
+              show_default=True)
+@click.option('--fraction_top_users', '-f', 'fraction_top_users', type=float, default=0.66,
+              help='Fraction of the sample users coming from the top active ones.',
+              show_default=True)
+def parse(model, num_epochs, dim, batch_size, gpu_index, test, weighted_sampler, unbiased, num_sampled_users,
+          fraction_top_users):
   if model == 'SVD':
-    train_svd(dim, num_epochs, batch_size, gpu_index, test, weighted_sampler, unbiased)
+    train_svd(dim, num_epochs, batch_size, gpu_index, test, weighted_sampler, unbiased, num_sampled_users, fraction_top_users)
 
 
 if __name__ == '__main__':
