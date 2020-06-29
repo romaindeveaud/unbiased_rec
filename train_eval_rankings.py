@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 import numpy    as np
 
 from pathlib import Path
@@ -10,8 +9,10 @@ import click
 
 from torch.utils.tensorboard import SummaryWriter
 
-from utils.session_ranking import RankingDataset
+from utils.session_ranking import RankingDataset, InteractionDataset
 from lib.NeuralMatrixFactorization import BiLinearNet
+from lib.metrics import ndcg_, dcg_
+from lib.losses  import IPSMSELoss
 
 devices = ['cuda:{}'.format(i) for i in range(torch.cuda.device_count())]
 
@@ -41,16 +42,17 @@ def _get_dataset_stats(session_rankings):
         item_ids.append(interaction.doc_id)
         num_items += 1
 
-  return num_users, num_items
+  return num_users+1, num_items+1  # Add another index for padding.
 
 
-def evaluate(model, test, loss_function, batch_size, device, writer, step):
+def evaluate(model, test, batch_size, device, writer, step):
   model.eval()
 
 #  sampler = torch.utils.data.sampler.RandomSampler(test)#test.class_weights, test.len)
-  testloader = torch.utils.data.DataLoader(test, batch_size=batch_size)#, sampler=sampler)
+  testloader = torch.utils.data.DataLoader(test, batch_size=batch_size, collate_fn=test.collate_fn)#, sampler=sampler)
 
   losses = []
+  loss_function = torch.nn.MSELoss()
 
   for i, batch in enumerate(testloader, 1):
     test_batch_users = batch['user'].to(device, non_blocking=True)
@@ -60,8 +62,10 @@ def evaluate(model, test, loss_function, batch_size, device, writer, step):
     y_hat = model(test_batch_users, test_batch_items)
 
     loss = loss_function(y_hat, test_batch_labels.double())
+
     losses.append(loss.item())
 
+    writer.add_scalar('DCG@10/test', torch.mean(dcg_(y_hat, test_batch_labels, cutoff=10)), step)
     writer.add_scalar('Loss/test', loss.item(), step)
     step += 1
 
@@ -70,8 +74,8 @@ def evaluate(model, test, loss_function, batch_size, device, writer, step):
   return losses
 
 
-def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, train_test_split=.75, num_users_sample=10000,
-              fraction_top_users=0.66):
+def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weighted_sampler, unbiased,
+              train_test_split=.75, num_users_sample=10000, fraction_top_users=0.66):
   device = torch.device(devices[gpu_index] if torch.cuda.is_available() else 'cpu')
 
   session_rankings = _get_session_rankings(num_users_sample, fraction_top_users)
@@ -98,6 +102,7 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, train_tes
 
   split_index = int(len(session_rankings) * train_test_split)
 
+  #train_rankings = InteractionDataset(session_rankings[:split_index])
   train_rankings = RankingDataset(session_rankings[:split_index])
   test_rankings  = RankingDataset(session_rankings[split_index:])
 
@@ -112,20 +117,32 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, train_tes
     weight_decay=0,
     lr=3e-4
   )
-  loss_function = torch.nn.MSELoss()
-  #loss_function = torch.nn.BCEWithLogitsLoss()#pos_weight=train_rankings.pos_weight)
-  loss_function.to(device)
 
-  writer = SummaryWriter('output/runs/{}-sample-weighting-{}users-{}top'.format(loss_function.__str__(),
-                                                                                num_users_sample,
-                                                                                fraction_top_users))
+  if unbiased:
+    loss_function = IPSMSELoss
+  else:
+    loss_function = torch.nn.MSELoss()
+  #loss_function = torch.nn.BCEWithLogitsLoss()#pos_weight=train_rankings.pos_weight)
+
+  writer = SummaryWriter('output/runs/{}{}-ranking{}-{}k-{}users-{}top'.format('unbiased-' if unbiased else '',
+                                                                             loss_function.__str__(),
+                                                                             '-weightedsampler' if is_weighted_sampler else '',
+                                                                             num_dimensions,
+                                                                             num_users_sample,
+                                                                             fraction_top_users))
 
   step = 0
   test_step = 0
   for epoch in range(num_epochs):
     #sampler = torch.utils.data.sampler.WeightedRandomSampler(torch.empty(train_rankings.len).random_(10), batch_size)
-    sampler = torch.utils.data.sampler.WeightedRandomSampler(train_rankings.sampler_weights, train_rankings.len)
-    trainloader = torch.utils.data.DataLoader(train_rankings, batch_size=batch_size, sampler=sampler)#, shuffle=True)
+    if is_weighted_sampler:
+      sampler = torch.utils.data.sampler.WeightedRandomSampler(train_rankings.sampler_weights, train_rankings.len)
+      trainloader = torch.utils.data.DataLoader(train_rankings, batch_size=batch_size,
+                                                collate_fn=train_rankings.collate_fn,
+                                                sampler=sampler)#, shuffle=True)
+    else:
+      trainloader = torch.utils.data.DataLoader(train_rankings, batch_size=batch_size,
+                                                collate_fn=train_rankings.collate_fn)
 
     running_loss = 0.0
     for i, batch in enumerate(trainloader, 1):
@@ -145,14 +162,14 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, train_tes
 
       writer.add_scalar('Loss/train', loss.item(), step)
       step += 1
-      if i % 200 == 199:  # print every 200 batches
+      if i % 20 == 19:  # print every 200 batches
         print('[%d, %5d] training loss: %.3f' %
-              (epoch + 1, i + 1, running_loss / 200))
+              (epoch + 1, i + 1, running_loss / 20))
         running_loss = 0.0
 
     if test:
       # Run an evaluation cycle at the end of each epoch.
-      test_losses = evaluate(m, test_rankings, loss_function, batch_size, device, writer, test_step)
+      test_losses = evaluate(m, test_rankings, batch_size, device, writer, test_step)
       test_step += len(test_losses)
       print("\t Test loss at epoch {}: {} (len {})".format(epoch+1, np.mean(test_losses), len(test_losses)))
 
@@ -168,9 +185,16 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, train_tes
 @click.option('--test', '-t', 'test', type=bool, is_flag=True, default=False,
                                       help='Set to True to perform an evaluation'
                                            'right after training.', show_default=True)
-def parse(model, num_epochs, dim, batch_size, gpu_index, test):
+@click.option('--weighted_sampler', '-w', 'weighted_sampler', type=bool, is_flag=True, default=False,
+              help='Set the flag to perform a balanced sampling during training.',
+              show_default=True)
+@click.option('--unbiased', '-u', 'unbiased', type=bool, is_flag=True, default=False,
+              help='Set the flag to perform an IPS weighted training, leading to unbiased recommendations.',
+              show_default=True)
+def parse(model, num_epochs, dim, batch_size, gpu_index, test, weighted_sampler, unbiased):
   if model == 'SVD':
-    train_svd(dim, num_epochs, batch_size, gpu_index, test)
+    train_svd(dim, num_epochs, batch_size, gpu_index, test, weighted_sampler, unbiased)
+
 
 if __name__ == '__main__':
   parse()

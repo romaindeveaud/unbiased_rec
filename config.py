@@ -1,11 +1,11 @@
-import numpy as np
+import torch
 
 DATASET_PATH = './datasets/sequential_exposure_explicit_sample_top3000/'
 
 DATA_FOLDER = 'data/'
 DATASET_OUTPUT_FOLDER = 'datasets/'
 
-observation_propensities = np.array([1.        , 0.88055458, 0.80510771, 0.71392457, 0.63559779,
+observation_propensities = torch.FloatTensor([1.        , 0.88055458, 0.80510771, 0.71392457, 0.63559779,
                             0.56748806, 0.51084411, 0.46308138, 0.44958134, 0.43761014,
                             0.42638225, 0.41500714, 0.4025763 , 0.38854571, 0.37374217,
                             0.36440939, 0.35589085, 0.34757429, 0.33929993, 0.33108393,
