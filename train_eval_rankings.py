@@ -70,13 +70,14 @@ def evaluate(model, test, batch_size, device, writer, step):
 
     dcg = dcg_(y_hat, test_batch_labels, cutoff=10, device=device)
     ndcg = ndcg_(y_hat, test_batch_labels, cutoff=10, device=device)
-    dcgs = torch.cat((dcgs, dcg))
-    ndcgs = torch.cat((ndcgs, ndcg))
 
     if writer:
       writer.add_scalar('DCG@10/test', torch.mean(dcg), step)
       writer.add_scalar('Loss/test', loss.item(), step)
       step += 1
+
+    dcgs = torch.cat((dcgs, dcg.cpu()))
+    ndcgs = torch.cat((ndcgs, ndcg.cpu()))
 
   model.train()
 
