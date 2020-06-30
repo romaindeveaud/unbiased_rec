@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 
 
 def dcg_(rel_pred, rel_true, cutoff=None):
@@ -22,7 +21,7 @@ def dcg_(rel_pred, rel_true, cutoff=None):
   sorted_pred_idx = torch.argsort(rel_pred.squeeze(-1), dim=1, descending=True)
   ranked_rel_true = torch.gather(rel_true, 1, sorted_pred_idx)
 
-  _dcg = (2 ** ranked_rel_true[:, ] - 1) / np.log2(np.array(range(ranked_rel_true.size(1))) + 2)
+  _dcg = (2 ** ranked_rel_true[:, ] - 1) / torch.log2(torch.arange(ranked_rel_true.size(1), dtype=torch.float) + 2)
 
   if cutoff is not None:
     _dcg = _dcg[:, 0:cutoff]
