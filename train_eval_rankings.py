@@ -59,7 +59,7 @@ def evaluate(model, test, batch_size, device, writer, step):
 
     losses.append(loss.item())
 
-    writer.add_scalar('DCG@10/test', torch.mean(dcg_(y_hat, test_batch_labels, cutoff=10)), step)
+    writer.add_scalar('DCG@10/test', torch.mean(dcg_(y_hat, test_batch_labels, cutoff=10, device=device)), step)
     writer.add_scalar('Loss/test', loss.item(), step)
     step += 1
 

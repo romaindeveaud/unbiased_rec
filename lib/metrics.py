@@ -1,7 +1,7 @@
 import torch
 
 
-def dcg_(rel_pred, rel_true, cutoff=None):
+def dcg_(rel_pred, rel_true, cutoff=None, device='cpu'):
   """ Computing the Discounted Cumulative Gain (DCG).
       https://en.wikipedia.org/wiki/Discounted_cumulative_gain
   Arguments:
@@ -21,7 +21,7 @@ def dcg_(rel_pred, rel_true, cutoff=None):
   sorted_pred_idx = torch.argsort(rel_pred.squeeze(-1), dim=1, descending=True)
   ranked_rel_true = torch.gather(rel_true, 1, sorted_pred_idx)
 
-  _dcg = (2 ** ranked_rel_true[:, ] - 1) / torch.log2(torch.arange(ranked_rel_true.size(1), dtype=torch.float) + 2)
+  _dcg = (2 ** ranked_rel_true[:, ] - 1) / torch.log2(torch.arange(ranked_rel_true.size(1), dtype=torch.float).to(device) + 2)
 
   if cutoff is not None:
     _dcg = _dcg[:, 0:cutoff]
@@ -31,7 +31,7 @@ def dcg_(rel_pred, rel_true, cutoff=None):
   return dcg
 
 
-def ndcg_(rel_pred, rel_true, cutoff):
+def ndcg_(rel_pred, rel_true, cutoff, device='cpu'):
   """ Computing the normalized Discounted Cumulative Gain (nDCG).
   Arguments:
     rel_pred:  tensor of size (batch_size, list_size, 1), containing
@@ -43,7 +43,7 @@ def ndcg_(rel_pred, rel_true, cutoff):
   Returns:
     Tensor of size (batch_size) containing the nDCG@cutoff of each query.
   """
-  idcg = dcg_(rel_true.unsqueeze(-1), rel_true, cutoff)
+  idcg = dcg_(rel_true.unsqueeze(-1), rel_true, cutoff, device)
   idcg[idcg == 0.0] = 1
 
-  return dcg_(rel_pred, rel_true, cutoff) / idcg
+  return dcg_(rel_pred, rel_true, cutoff, device) / idcg
