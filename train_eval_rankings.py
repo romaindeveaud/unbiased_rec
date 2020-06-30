@@ -17,11 +17,25 @@ from lib.losses  import IPSMSELoss
 devices = ['cuda:{}'.format(i) for i in range(torch.cuda.device_count())]
 
 
-def _get_session_rankings(num_users, fraction_top_users):
-  return np.concatenate([pickle.load(open(fpath, 'rb')) for fpath in
-                         sorted(Path(config.DATASET_OUTPUT_FOLDER +
-                                     'sequential_exposure_explicit_sample_{}/session_grouped_{}'.format(num_users,
-                                                                                                        fraction_top_users)).glob('*.pkl'))])
+def _split_rankings_train_test(session_rankings, train_test_split):
+  split_index = int(len(session_rankings) * train_test_split)
+  return session_rankings[:split_index], session_rankings[split_index:]
+
+
+def _get_session_rankings(num_users, fraction_top_users, train_test_split):
+  train_sessions = []
+  test_sessions  = []
+
+  for fpath in sorted(Path(config.DATASET_OUTPUT_FOLDER + 'sequential_exposure_explicit_sample_{}/session_grouped_{}'.format(num_users, fraction_top_users)).glob('*.pkl')):
+    _train, _test = _split_rankings_train_test(pickle.load(open(fpath, 'rb')), train_test_split)
+    train_sessions += _train
+    test_sessions  += _test
+
+  return train_sessions, test_sessions
+#    return [_split_rankings_train_test(pickle.load(open(fpath, 'rb')), train_test_split) for fpath in
+#                         sorted(Path(config.DATASET_OUTPUT_FOLDER +
+#                                     'sequential_exposure_explicit_sample_{}/session_grouped_{}'.format(num_users,
+#                                                                                                        fraction_top_users)).glob('*.pkl'))]
   #return { fpath.name.split('.')[0]:pickle.load(open(fpath, 'rb')) for fpath in Path(config.DATASET_PATH + 'session_grouped').glob('*.pkl') }
 
 
@@ -58,16 +72,19 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weight
               num_users_sample=10000, fraction_top_users=0.66, train_test_split=.75):
   device = torch.device(devices[gpu_index] if torch.cuda.is_available() else 'cpu')
 
-  session_rankings = _get_session_rankings(num_users_sample, fraction_top_users)
+  # returns a list of list of sessions.
+  train_sessions, test_sessions = _get_session_rankings(num_users_sample, fraction_top_users, train_test_split)
 
-  # user and item ids start at 1. Index 0 is reserved for padding.
-  num_users = num_users_sample + 1
+  num_users = num_users_sample
   num_items = len(np.load(config.DATASET_OUTPUT_FOLDER +
-                          'sequential_exposure_explicit_sample_{}/session_grouped_{}'.format(num_users_sample,
-                                                                                             fraction_top_users))) + 1
+                          'sequential_exposure_explicit_sample_{}/session_grouped_{}/item_ids.npy'.format(num_users_sample,
+                                                                                             fraction_top_users)))
+
+  num_sessions = len(train_sessions) + len(test_sessions)
 
   print('num_users {}, num_items {}'.format(num_users, num_items))
-  print('session_rankings len {}'.format(len(session_rankings)))
+  print('session_rankings len {}'.format(num_sessions))
+
 
   # Shuffle all the interactions.
   # It might be relevant to simply take them all in order to respect the temporal aspect of news recommendation.
@@ -84,16 +101,16 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weight
   # train_rankings = RankingDataset(session_rankings[train_index])
   # test_rankings  = RankingDataset(session_rankings[test_index])
 
-  split_index = int(len(session_rankings) * train_test_split)
 
   #train_rankings = InteractionDataset(session_rankings[:split_index])
-  train_rankings = RankingDataset(session_rankings[:split_index])
-  test_rankings  = RankingDataset(session_rankings[split_index:])
+  train_rankings = RankingDataset(train_sessions)
+  test_rankings  = RankingDataset(test_sessions)
 
   print('train_rankings len: ', train_rankings.len)
   print('test_rankings len: ', test_rankings.len)
 
-  m = BiLinearNet(num_users, num_items, num_dimensions)
+  # user and item ids start at 1. Index 0 is reserved for padding.
+  m = BiLinearNet(num_users+1, num_items+1, num_dimensions)
   m.to(device)
 
   optimiser = torch.optim.Adam(
