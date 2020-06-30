@@ -61,6 +61,8 @@ def process_click_file_from_sampled_users(click_file, users, session2user, outpu
   with open(Path(output_directory + day + '.pkl'), 'wb') as f:
     pickle.dump(rankings, f)
 
+  return _df['item_id'].unique()
+
 
 def process_click_file_session_grouped(click_file, output_directory, session2user, sample_users):
   day = click_file.name.split('_')[0]
@@ -81,6 +83,8 @@ def process_click_file_session_grouped(click_file, output_directory, session2use
 
   with open(Path(output_directory + day + '.pkl'), 'wb') as f:
     pickle.dump(rankings, f)
+
+  return _df['item_id'].unique()
 
 
 def process_click_file(click_file, model, session2user, sample_users=3000):
