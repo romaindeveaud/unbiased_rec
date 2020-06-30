@@ -48,6 +48,9 @@ def evaluate(model, test, batch_size, device, writer, step):
   losses = []
   loss_function = torch.nn.MSELoss()
 
+  dcgs = torch.tensor([])
+  ndcgs = torch.tensor([])
+
   for i, batch in enumerate(testloader, 1):
     test_batch_users = batch['user'].to(device, non_blocking=True)
     test_batch_items = batch['item'].to(device, non_blocking=True)
@@ -59,13 +62,19 @@ def evaluate(model, test, batch_size, device, writer, step):
 
     losses.append(loss.item())
 
-    writer.add_scalar('DCG@10/test', torch.mean(dcg_(y_hat, test_batch_labels, cutoff=10, device=device)), step)
-    writer.add_scalar('Loss/test', loss.item(), step)
-    step += 1
+    dcg = dcg_(y_hat, test_batch_labels, cutoff=10, device=device)
+    ndcg = ndcg_(y_hat, test_batch_labels, cutoff=10, device=device)
+    dcgs = torch.cat(dcgs, dcg)
+    ndcgs = torch.cat(ndcgs, ndcg)
+
+    if writer:
+      writer.add_scalar('DCG@10/test', torch.mean(dcg), step)
+      writer.add_scalar('Loss/test', loss.item(), step)
+      step += 1
 
   model.train()
 
-  return losses
+  return losses, dcgs, ndcgs
 
 
 def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weighted_sampler, unbiased,
@@ -170,10 +179,12 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weight
 
     if test:
       # Run an evaluation cycle at the end of each epoch.
-      test_losses = evaluate(m, test_rankings, batch_size, device, writer, test_step)
+      test_losses, test_dcg, test_ndcg = evaluate(m, test_rankings, batch_size, device, writer, test_step)
       test_step += len(test_losses)
       print("\t Test loss at epoch {}: {} (len {})".format(epoch+1, np.mean(test_losses), len(test_losses)))
 
+  _, dcg, ndcg = evaluate(m, test_rankings, batch_size, device, writer=None, step=None)
+  print('DCG@10: {} | nDCG@10: {}'.format(torch.mean(dcg), torch.mean(ndcg)))
 
 
 @click.command()
