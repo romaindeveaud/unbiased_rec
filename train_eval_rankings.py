@@ -25,26 +25,6 @@ def _get_session_rankings(num_users, fraction_top_users):
   #return { fpath.name.split('.')[0]:pickle.load(open(fpath, 'rb')) for fpath in Path(config.DATASET_PATH + 'session_grouped').glob('*.pkl') }
 
 
-def _get_dataset_stats(session_rankings):
-  user_ids = []
-  item_ids = []
-
-  num_users = 0
-  num_items = 0
-
-  for ranking in session_rankings:
-    if ranking.user_id not in user_ids:
-      user_ids.append(ranking.user_id)
-      num_users += 1
-
-    for interaction in ranking.interactions:
-      if interaction.doc_id not in item_ids:
-        item_ids.append(interaction.doc_id)
-        num_items += 1
-
-  return num_users+1, num_items+1  # Add another index for padding.
-
-
 def evaluate(model, test, batch_size, device, writer, step):
   model.eval()
 
@@ -80,7 +60,11 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weight
 
   session_rankings = _get_session_rankings(num_users_sample, fraction_top_users)
 
-  num_users, num_items = _get_dataset_stats(session_rankings)
+  # user and item ids start at 1. Index 0 is reserved for padding.
+  num_users = num_users_sample + 1
+  num_items = len(np.load(config.DATASET_OUTPUT_FOLDER +
+                          'sequential_exposure_explicit_sample_{}/session_grouped_{}'.format(num_users_sample,
+                                                                                             fraction_top_users))) + 1
 
   print('num_users {}, num_items {}'.format(num_users, num_items))
   print('session_rankings len {}'.format(len(session_rankings)))

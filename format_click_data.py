@@ -155,9 +155,11 @@ def parse(session, num_users, sampled_users_file):
       len(users), portion_top_sample)
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    Parallel(n_jobs=7)(
+    item_ids = Parallel(n_jobs=-1, prefer='threads')(
       delayed(process_click_file_from_sampled_users)(click_file, users, session2user, output_dir) for click_file in
       Path(config.DATA_FOLDER).glob('*_clicks.dat'))
+
+    np.save(output_dir + '/item_ids.npy', np.unique(np.concatenate(item_ids)))
 
   else:
     if session:
