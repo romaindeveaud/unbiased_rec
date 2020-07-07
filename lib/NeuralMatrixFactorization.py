@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class BiLinearNet(nn.Module):
-  def __init__(self, num_users, num_items, num_dimensions):
+  def __init__(self, num_users, num_items, num_dimensions, mean=0):
     super().__init__()
 
     self.user_embeddings = nn.Embedding(num_users, num_dimensions)
@@ -18,6 +18,8 @@ class BiLinearNet(nn.Module):
     nn.init.zeros_(self.user_bias.weight)
     nn.init.zeros_(self.item_bias.weight)
 
+    self.mu = mean
+
   def forward(self, user_id, item_id):
     u_emb = self.user_embeddings(user_id.long())#.squeeze()
     i_emb = self.item_embeddings(item_id.long())#.squeeze()
@@ -30,4 +32,4 @@ class BiLinearNet(nn.Module):
 #    print(user_id.size(), item_id.size())
 #    print(u_emb.size(), u_bias.size(), i_emb.size(), i_bias.size(), dot_.size())
 
-    return dot_ + u_bias + i_bias
+    return dot_ + u_bias + i_bias + self.mu

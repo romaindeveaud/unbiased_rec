@@ -19,6 +19,8 @@ devices = ['cuda:{}'.format(i) for i in range(torch.cuda.device_count())]
 
 def _split_rankings_train_test(session_rankings, train_test_split):
   split_index = int(len(session_rankings) * train_test_split)
+  np.random.shuffle(session_rankings)
+
   return session_rankings[:split_index], session_rankings[split_index:]
 
 
@@ -61,9 +63,12 @@ def evaluate(model, test, batch_size, device, writer, step):
     test_batch_users = batch['user'].to(device, non_blocking=True)
     test_batch_items = batch['item'].to(device, non_blocking=True)
     test_batch_labels = batch['label'].to(device, non_blocking=True)
+    test_batch_rels = batch['relevance'].to(device, non_blocking=True)
 
     y_hat = model(test_batch_users, test_batch_items)
 
+    print(y_hat, test_batch_rels)
+    #loss = loss_function(y_hat, test_batch_rels)
     loss = loss_function(y_hat, test_batch_labels.double())
 
     losses.append(loss.item())
@@ -119,6 +124,7 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weight
   # test_rankings  = RankingDataset(session_rankings[test_index])
 
   # train_rankings = InteractionDataset(session_rankings[:split_index])
+
   train_rankings = RankingDataset(train_sessions)
   test_rankings = RankingDataset(test_sessions)
 
@@ -127,7 +133,7 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weight
     print('test_rankings len: ', test_rankings.len)
 
   # user and item ids start at 1. Index 0 is reserved for padding.
-  m = BiLinearNet(num_users + 1, num_items + 1, num_dimensions)
+  m = BiLinearNet(num_users + 1, num_items + 1, num_dimensions, train_rankings.mean)
   m.to(device)
 
   optimiser = torch.optim.Adam(
@@ -140,7 +146,7 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weight
     loss_function = IPSMSELoss
   else:
     loss_function = torch.nn.MSELoss()
-  # loss_function = torch.nn.BCEWithLogitsLoss()#pos_weight=train_rankings.pos_weight)
+#    loss_function = torch.nn.BCEWithLogitsLoss()#pos_weight=train_rankings.pos_weight)
 
   writer = SummaryWriter('output/runs/{}{}-ranking{}-{}k-{}users-{}top'.format('unbiased-' if unbiased else '',
                                                                                loss_function.__str__(),
@@ -156,16 +162,19 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weight
     if is_weighted_sampler:
       sampler = torch.utils.data.sampler.WeightedRandomSampler(train_rankings.sampler_weights, train_rankings.len)
       trainloader = torch.utils.data.DataLoader(train_rankings, batch_size=batch_size,
-                                                collate_fn=train_rankings.collate_fn,
+                                                collate_fn=train_rankings.collate_fn if hasattr(train_rankings, 'collate_fn')
+                                                                                     else None,
                                                 sampler=sampler)  # , shuffle=True)
     else:
       trainloader = torch.utils.data.DataLoader(train_rankings, batch_size=batch_size,
-                                                collate_fn=train_rankings.collate_fn)
+                                                collate_fn=train_rankings.collate_fn if hasattr(train_rankings, 'collate_fn')
+                                                                                       else None)
 
     running_loss = 0.0
     for i, batch in enumerate(trainloader, 1):
       batch_users = batch['user'].to(device, non_blocking=True)
       batch_items = batch['item'].to(device, non_blocking=True)
+      #batch_labels = batch['relevance'].to(device, non_blocking=True)
       batch_labels = batch['label'].to(device, non_blocking=True)
 
       optimiser.zero_grad()
@@ -190,7 +199,11 @@ def train_svd(num_dimensions, num_epochs, batch_size, gpu_index, test, is_weight
       test_losses, test_dcg, test_ndcg = evaluate(m, test_rankings, batch_size, device, writer, test_step)
       test_step += len(test_losses)
       if verbose:
-        print("\t Test loss at epoch {}: {} (len {})".format(epoch + 1, np.mean(test_losses), len(test_losses)))
+        print("\t Test loss at epoch {}: {} (len {}) | DCG@10: {} | nDCG@10: {}".format(epoch + 1,
+                                                                                        np.mean(test_losses),
+                                                                                        len(test_losses),
+                                                                                        torch.mean(test_dcg),
+                                                                                        torch.mean(test_ndcg)))
 
   _, dcg, ndcg = evaluate(m, test_rankings, batch_size, device, writer=None, step=None)
   print('DCG@10: {} | nDCG@10: {}'.format(torch.mean(dcg), torch.mean(ndcg)))

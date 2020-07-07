@@ -14,4 +14,4 @@ class Function(object):
 
 @Function
 def IPSMSELoss(output, target):
-  return (((output - target)**2)/config.observation_propensities).mean()
+  return (((output - target)**2)/config.observation_propensities.unsqueeze(0)).mean()

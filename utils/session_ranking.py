@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 
+import config
+
 from torch.utils.data import Dataset
 
 
@@ -8,6 +10,7 @@ class Interaction:
   def __init__(self, doc_id, rank, policy_score, click):
     self.doc_id = int(doc_id)
     self.rank = int(rank)
+#    self.relevance = click/config.observation_propensities[self.rank-1]
     self.click = int(click)
     self.policy_score = policy_score
 
@@ -42,6 +45,7 @@ class AbstractRankingDataset(Dataset):
     item_ids = {}
 
     class_counts = [0, 0]
+    mean = 0.0
 
     for i, ranking in enumerate(session_rankings):
       self.session_offsets[2*i] = len(self.interactions)
@@ -55,6 +59,7 @@ class AbstractRankingDataset(Dataset):
         interaction.internal_doc_id  = item_ids[interaction.doc_id]
 
         class_counts[interaction.click] += 1
+        mean += interaction.click
 
         interaction.session_id = ranking.session_id
         self.interactions.append(interaction)
@@ -62,6 +67,8 @@ class AbstractRankingDataset(Dataset):
       self.session_offsets[(2*i)+1] = len(self.interactions)
 
     self.class_weights = 1 / torch.Tensor(class_counts)
+    #self.mean = [ l*c for l, c in enumerate(class_counts) ]/sum(class_counts)
+    self.mean = mean/sum(class_counts)
     self.interactions = np.array(self.interactions)
 
   def __len__(self):
@@ -76,10 +83,12 @@ class InteractionDataset(AbstractRankingDataset):
     self.len = len(self.interactions)
 
   def __getitem__(self, idx):
+    interaction = self.interactions[idx]
     return {
-      'item': self.interactions[idx].internal_doc_id,
-      'user': self.interactions[idx].internal_user_id,
-      'label': self.interactions[idx].click,
+      'item': interaction.internal_doc_id,
+      'user': interaction.internal_user_id,
+      'label': interaction.click,
+      'relevance': float(interaction.click)/config.observation_propensities[interaction.rank-1]
     }
 
 
@@ -96,6 +105,7 @@ class RankingDataset(AbstractRankingDataset):
     padded_items  = torch.zeros(len(batch), max_size, dtype=torch.int)
     padded_users  = torch.zeros(len(batch), max_size, dtype=torch.int)
     padded_labels = torch.zeros(len(batch), max_size)
+    padded_rels   = torch.zeros(len(batch), max_size, dtype=torch.float)
 
     _sizes = torch.zeros(len(batch), dtype=torch.int)
 
@@ -105,6 +115,7 @@ class RankingDataset(AbstractRankingDataset):
       padded_items[i, 0:max_offset]  = sample['item']
       padded_users[i, 0:max_offset]  = sample['user']
       padded_labels[i, 0:max_offset] = sample['label']
+      padded_rels[i, 0:max_offset]   = sample['relevance']
 
       _sizes[i] = int(max_size)
 
@@ -112,6 +123,7 @@ class RankingDataset(AbstractRankingDataset):
       'item': padded_items,
       'user': padded_users,
       'label': padded_labels,
+      'relevance': padded_rels,
       'size': _sizes
     }
 
@@ -124,16 +136,19 @@ class RankingDataset(AbstractRankingDataset):
     _items  = []
     _users  = []
     _labels = []
+    _rels   = []
 
     for x in ranking:
       _items.append(x.internal_doc_id)
       _users.append(x.internal_user_id)
       _labels.append(x.click)
+      _rels.append(float(x.click)/config.observation_propensities[x.rank-1])
 
     return {
       'item': torch.IntTensor(_items),
       'user': torch.IntTensor(_users),
       'label': torch.IntTensor(_labels),
+      'relevance': torch.FloatTensor(_rels),
       'size': len(ranking)
     }
 
