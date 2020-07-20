@@ -29,7 +29,7 @@ def get_session2user():
   return session2user
 
 
-def _get_sequential_topk_rankings(df):
+def get_sequential_topk_rankings(df):
   rankings = []
 
   for i in range(int(len(df) / 49)):
@@ -44,6 +44,9 @@ def _get_sequential_topk_rankings(df):
     # Clicks are 1s, non-clicks are 0s.
     _temp.loc[_temp.click_timestamp > 0, 'click_timestamp'] = 1
     _temp.loc[_temp.click_timestamp <= 0, 'click_timestamp'] = 0
+
+    if len(_temp[_temp.click_timestamp == 0]) == len(_temp):
+      continue
 
     session_id = _temp.iloc[0].session_id
     user_id = _temp.iloc[0].user_id

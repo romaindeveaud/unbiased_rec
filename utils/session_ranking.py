@@ -70,6 +70,8 @@ class AbstractRankingDataset(Dataset):
     #self.mean = [ l*c for l, c in enumerate(class_counts) ]/sum(class_counts)
     self.mean = mean/sum(class_counts)
     self.interactions = np.array(self.interactions)
+    self.num_users = len(user_ids)
+    self.num_items = len(item_ids)
 
   def __len__(self):
     return self.len
