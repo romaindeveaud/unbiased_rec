@@ -136,7 +136,8 @@ class ExplicitMF:
       rrs.append(rr)
       recalls.append(recall)
 
-    logging.info('MRR: {} | Recall@5: {} | nDCG: {}'.format(np.mean(rrs), np.mean(recalls), np.mean(ndcgs)))
+    logging.info('\nResults for K={}'.format(self.num_dim))
+    logging.info('\tMRR: {} | Recall@5: {} | nDCG: {}'.format(np.mean(rrs), np.mean(recalls), np.mean(ndcgs)))
 
 
 def _split_rankings_train_test(session_rankings, train_test_split, is_random=True):
