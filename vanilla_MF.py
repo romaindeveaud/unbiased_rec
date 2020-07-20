@@ -149,7 +149,7 @@ def _split_rankings_train_test(session_rankings, train_test_split, is_random=Tru
 
 
 def train_mf(file, train_test_split, num_dimensions, num_epochs):
-  logging.info('Training basic MF. Input file: {}'.format(file))
+  logging.info('Training basic MF with K={}. Input file: {}'.format(num_dimensions, file))
 
   outfile = Path(config.DATASET_OUTPUT_FOLDER + Path(file).stem + '_sessions_nosampling.pkl')
 
