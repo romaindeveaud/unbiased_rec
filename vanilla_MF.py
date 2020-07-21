@@ -57,8 +57,8 @@ class ExplicitMF:
     self.num_users = num_users
     self.num_items = num_items
 
-    self.user_embeddings = np.random.normal(0, 1/self.num_dim, (self.num_users, self.num_dim), dtype=np.long)
-    self.item_embeddings = np.random.normal(0, 1/self.num_dim, (self.num_items, self.num_dim), dtype=np.long)
+    self.user_embeddings = np.random.normal(0, 1/self.num_dim, (self.num_users, self.num_dim))
+    self.item_embeddings = np.random.normal(0, 1/self.num_dim, (self.num_items, self.num_dim))
     self.user_bias = np.zeros(self.num_users, dtype=np.double)
     self.item_bias = np.zeros(self.num_items, dtype=np.double)
 
