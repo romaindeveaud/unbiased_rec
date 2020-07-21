@@ -5,11 +5,14 @@ import logging
 import click
 import config
 import pickle
+import multiprocessing
 
 from pathlib import Path
 
 from utils import utils
 from utils.session_ranking import RankingDataset
+
+lock = multiprocessing.Lock()
 
 
 def ndcg_(pred_ranking, true_ranking):
@@ -50,8 +53,29 @@ def recall_(pred_ranking, true_ranking, cutoff=5):
   return len(pred_with_labels[pred_with_labels == 1])/len(_true[_true == 1])
 
 
+def ap_(pred_ranking, true_ranking):
+  _pred = np.array(pred_ranking)
+  _true = np.array(true_ranking)
+
+  pred_with_labels = _true[_pred.argsort()][::-1]
+
+  _count_rel = 0.0
+  ap = 0.0
+  for i, p in enumerate(pred_with_labels):
+    if p > 0:
+      _count_rel += 1
+
+    p_i = _count_rel*p/(i+1)
+    ap += p_i
+
+  ap /= len(_true[_true == 1])
+
+  return ap
+
+
+
 class ExplicitMF:
-  def __init__(self, num_dim, num_epochs, num_users, num_items, learning_rate=.005, reg=.02):
+  def __init__(self, num_dim, num_epochs, num_users, num_items, unbiased, name=None, learning_rate=.005, reg=.02):
     self.num_dim = num_dim
     self.num_epochs = num_epochs
     self.num_users = num_users
@@ -67,6 +91,9 @@ class ExplicitMF:
 
     self.learning_rate  = learning_rate
     self.regularisation = reg
+
+    self.unbiased = unbiased
+    self.name = name
 
   def train(self, dataset):
     """ Applying Stochastic Gradient Descent to train a Matrix Factorisation model.
@@ -84,13 +111,14 @@ class ExplicitMF:
 
           u = self.real_user2internal_id[ranking.user_id]
           i = self.real_item2internal_id[interaction.doc_id]
-          click = interaction.click
+          y_true = interaction.click
           rank  = interaction.rank
 
-          ips_click = click / config.observation_propensities[rank-1]
+          if self.unbiased:
+            y_true = y_true / config.observation_propensities[rank-1]
 
           dot_ = np.dot(self.user_embeddings[u], self.item_embeddings[i])
-          err  = ips_click - (dot_ + self.user_bias[u] + self.item_bias[i])
+          err  = y_true - (dot_ + self.user_bias[u] + self.item_bias[i])
 
           # Update step
           self.user_bias[u] += self.learning_rate * (err - self.regularisation * self.user_bias[u])
@@ -111,6 +139,7 @@ class ExplicitMF:
     ndcgs   = []
     rrs     = []
     recalls = []
+    aps     = []
 
     for test_ranking in test_dataset:
       pred_ranking = []
@@ -132,12 +161,19 @@ class ExplicitMF:
       ndcg   = ndcg_(pred_ranking, true_ranking)
       rr     = mrr_(pred_ranking, true_ranking)
       recall = recall_(pred_ranking, true_ranking, cutoff=5)
+      ap     = ap_(pred_ranking, true_ranking)
       ndcgs.append(ndcg)
       rrs.append(rr)
       recalls.append(recall)
+      aps.append(ap)
 
-    logging.info('\nResults for K={}'.format(self.num_dim))
-    logging.info('\tMRR: {} | Recall@5: {} | nDCG: {}'.format(np.mean(rrs), np.mean(recalls), np.mean(ndcgs)))
+    logging.info('{}, K={}\tMRR: {} | Recall@5: {} | nDCG: {} | MAP: {}'.format(self.name, self.num_dim,
+                                                                                np.mean(rrs), np.mean(recalls),
+                                                                                np.mean(ndcgs), np.mean(aps)))
+
+    with lock:
+      with open('output/all_days' + '_unbiased.csv' if self.unbiased else '.csv', 'w+') as f:
+        f.write('{},{},{},{},{},{}\n'.format(self.name, self.num_dim, np.mean(rrs), np.mean(recalls), np.mean(ndcgs), np.mean(aps)))
 
 
 def _split_rankings_train_test(session_rankings, train_test_split, is_random=True):
@@ -149,7 +185,7 @@ def _split_rankings_train_test(session_rankings, train_test_split, is_random=Tru
   return session_rankings[:split_index], session_rankings[split_index:]
 
 
-def train_mf(file, train_test_split, num_dimensions, num_epochs):
+def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased):
   logging.info('Training basic MF with K={}. Input file: {}'.format(num_dimensions, file))
 
   outfile = Path(config.DATASET_OUTPUT_FOLDER + Path(file).stem + '_sessions_nosampling.pkl')
@@ -180,7 +216,7 @@ def train_mf(file, train_test_split, num_dimensions, num_epochs):
   logging.info('Number of users: {}; number of items: {}.'.format(num_users, num_items))
   logging.info('Training/test sets are composed of {}/{} sessions.'.format(len(train_), len(test_)))
 
-  model = ExplicitMF(num_dimensions, num_epochs, num_users, num_items)
+  model = ExplicitMF(num_dimensions, num_epochs, num_users, num_items, unbiased, name=Path(file).stem.split('_')[0])
   model.train(train_)
   model.test(test_)
 
@@ -190,8 +226,9 @@ def train_mf(file, train_test_split, num_dimensions, num_epochs):
 @click.option('--train_test_split', '-s', 'train_test_split', type=float, default=.8)
 @click.option('--num_dimensions', '-k', 'num_dimensions', type=int, default=12)
 @click.option('--num_epochs', '-e', 'num_epochs', type=int, default=2)
-def parse(file, train_test_split, num_dimensions, num_epochs):
-  train_mf(file, train_test_split, num_dimensions, num_epochs)
+@click.option('--unbiased', '-u', 'unbiased', is_flag=True, type=bool, default=False)
+def parse(file, train_test_split, num_dimensions, num_epochs, unbiased):
+  train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased)
 
 
 if __name__ == '__main__':
