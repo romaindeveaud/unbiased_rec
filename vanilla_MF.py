@@ -5,14 +5,11 @@ import logging
 import click
 import config
 import pickle
-import multiprocessing
 
 from pathlib import Path
 
 from utils import utils
 from utils.session_ranking import RankingDataset
-
-lock = multiprocessing.Lock()
 
 
 def ndcg_(pred_ranking, true_ranking):
@@ -71,7 +68,6 @@ def ap_(pred_ranking, true_ranking):
   ap /= len(_true[_true == 1])
 
   return ap
-
 
 
 class ExplicitMF:
@@ -171,9 +167,8 @@ class ExplicitMF:
                                                                                 np.mean(rrs), np.mean(recalls),
                                                                                 np.mean(ndcgs), np.mean(aps)))
 
-    with lock:
-      with open('output/all_days' + '_unbiased.csv' if self.unbiased else '.csv', 'w+') as f:
-        f.write('{},{},{},{},{},{}\n'.format(self.name, self.num_dim, np.mean(rrs), np.mean(recalls), np.mean(ndcgs), np.mean(aps)))
+    with open('output/all_days' + '_unbiased.csv' if self.unbiased else '.csv', 'a') as f:
+      f.write('{},{},{},{},{},{}\n'.format(self.name, self.num_dim, np.mean(rrs), np.mean(recalls), np.mean(ndcgs), np.mean(aps)))
 
 
 def _split_rankings_train_test(session_rankings, train_test_split, is_random=True):
@@ -225,7 +220,7 @@ def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased):
 @click.option('--file', '-f', 'file', type=str, default=Path(config.DATA_FOLDER + '20191001_v2_clicks.dat'))
 @click.option('--train_test_split', '-s', 'train_test_split', type=float, default=.8)
 @click.option('--num_dimensions', '-k', 'num_dimensions', type=int, default=12)
-@click.option('--num_epochs', '-e', 'num_epochs', type=int, default=2)
+@click.option('--num_epochs', '-e', 'num_epochs', type=int, default=1)
 @click.option('--unbiased', '-u', 'unbiased', is_flag=True, type=bool, default=False)
 def parse(file, train_test_split, num_dimensions, num_epochs, unbiased):
   train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased)
