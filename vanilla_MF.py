@@ -111,11 +111,14 @@ class ExplicitMF:
           y_true = interaction.click
           rank  = interaction.rank
 
-          if self.unbiased:
-            y_true = y_true / config.observation_propensities[rank-1]
+#          if self.unbiased:
+#            y_true = y_true / config.observation_propensities[rank-1]
 
           dot_ = np.dot(self.user_embeddings[u], self.item_embeddings[i])
           err  = y_true - (dot_ + self.user_bias[u] + self.item_bias[i])
+
+          if self.unbiased:
+            err /= config.observation_propensities[rank-1]
 
           # Update step
           self.user_bias[u] += self.learning_rate * (err - self.regularisation * self.user_bias[u])
