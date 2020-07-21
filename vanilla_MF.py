@@ -167,7 +167,7 @@ class ExplicitMF:
                                                                                 np.mean(rrs), np.mean(recalls),
                                                                                 np.mean(ndcgs), np.mean(aps)))
 
-    with open('output/all_days' + '_unbiased.csv' if self.unbiased else '.csv', 'a') as f:
+    with open('output/all_days{}'.format('_unbiased.csv' if self.unbiased else '.csv'), 'a') as f:
       f.write('{},{},{},{},{},{}\n'.format(self.name, self.num_dim, np.mean(rrs), np.mean(recalls), np.mean(ndcgs), np.mean(aps)))
 
 
