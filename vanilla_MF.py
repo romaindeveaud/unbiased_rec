@@ -71,7 +71,8 @@ def ap_(pred_ranking, true_ranking):
 
 
 class ExplicitMF:
-  def __init__(self, num_dim, num_epochs, num_users, num_items, unbiased, name=None, output=False, learning_rate=.005, reg=.02):
+  def __init__(self, num_dim, num_epochs, num_users, num_items, unbiased, loss_type,
+               name=None, output=False, learning_rate=.005, reg=.02):
     self.num_dim = num_dim
     self.num_epochs = num_epochs
     self.num_users = num_users
@@ -91,6 +92,7 @@ class ExplicitMF:
     self.unbiased = unbiased
     self.name = name
     self.output = output
+    self.loss_type = loss_type
 
   def train(self, dataset):
     """ Applying Stochastic Gradient Descent to train a Matrix Factorisation model.
@@ -111,13 +113,13 @@ class ExplicitMF:
           y_true = interaction.click
           rank  = interaction.rank
 
-#          if self.unbiased:
-#            y_true = y_true / config.observation_propensities[rank-1]
+          if self.unbiased and self.loss_type == 'click':
+            y_true = y_true / config.observation_propensities[rank-1]
 
           dot_ = np.dot(self.user_embeddings[u], self.item_embeddings[i])
           err  = y_true - (dot_ + self.user_bias[u] + self.item_bias[i])
 
-          if self.unbiased:
+          if self.unbiased and self.loss_type == 'full':
             err /= config.observation_propensities[rank-1]
 
           # Update step
@@ -173,7 +175,7 @@ class ExplicitMF:
 
     if self.output:
       with open('output/all_days_epochs{}'.format('_unbiased.csv' if self.unbiased else '.csv'), 'a') as f:
-        f.write('{},{},{},{},{},{},{}\n'.format(self.name, self.num_epochs, self.num_dim, np.mean(rrs), np.mean(recalls), np.mean(ndcgs), np.mean(aps)))
+        f.write('{},{},{},{},{},{},{},{}\n'.format(self.name, self.num_epochs, self.num_dim, np.mean(rrs), np.mean(recalls), np.mean(ndcgs), np.mean(aps)), self.loss_type)
 
 
 def _split_rankings_train_test(session_rankings, train_test_split, is_random=True):
@@ -185,7 +187,7 @@ def _split_rankings_train_test(session_rankings, train_test_split, is_random=Tru
   return session_rankings[:split_index], session_rankings[split_index:]
 
 
-def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, output):
+def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss):
   logging.info('Training basic MF with K={}. Input file: {}'.format(num_dimensions, file))
 
   outfile = Path(config.DATASET_OUTPUT_FOLDER + Path(file).stem + '_sessions_nosampling.pkl')
@@ -216,7 +218,8 @@ def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, outpu
   logging.info('Number of users: {}; number of items: {}.'.format(num_users, num_items))
   logging.info('Training/test sets are composed of {}/{} sessions.'.format(len(train_), len(test_)))
 
-  model = ExplicitMF(num_dimensions, num_epochs, num_users, num_items, unbiased, name=Path(file).stem.split('_')[0], output=output)
+  model = ExplicitMF(num_dimensions, num_epochs, num_users, num_items, unbiased, loss_type=loss,
+                     name=Path(file).stem.split('_')[0], output=output)
   model.train(train_)
   model.test(test_)
 
@@ -228,8 +231,9 @@ def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, outpu
 @click.option('--num_epochs', '-e', 'num_epochs', type=int, default=1)
 @click.option('--unbiased', '-u', 'unbiased', is_flag=True, type=bool, default=False)
 @click.option('--output', '-o', 'output', is_flag=True, type=bool, default=False)
-def parse(file, train_test_split, num_dimensions, num_epochs, unbiased, output):
-  train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, output)
+@click.option('--loss', '-l', 'loss', type=click.Choice(['click', 'full']), default='full')
+def parse(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss):
+  train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss)
 
 
 if __name__ == '__main__':
