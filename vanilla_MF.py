@@ -174,8 +174,8 @@ class ExplicitMF:
                                                                                 np.mean(ndcgs), np.mean(aps)))
 
     if self.output:
-      with open('output/all_days_epochs{}'.format('_unbiased.csv' if self.unbiased else '.csv'), 'a') as f:
-        f.write('{},{},{},{},{},{},{},{}\n'.format(self.name, self.num_epochs, self.num_dim, np.mean(rrs), np.mean(recalls), np.mean(ndcgs), np.mean(aps)), self.loss_type)
+      with open('output/all_days_epochs{}'.format('_unbiased_{}.csv'.format(self.loss_type) if self.unbiased else '.csv'), 'a') as f:
+        f.write('{},{},{},{},{},{},{}\n'.format(self.name, self.num_epochs, self.num_dim, np.mean(rrs), np.mean(recalls), np.mean(ndcgs), np.mean(aps)))
 
 
 def _split_rankings_train_test(session_rankings, train_test_split, is_random=True):
