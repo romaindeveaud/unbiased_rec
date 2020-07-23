@@ -246,7 +246,7 @@ def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, outpu
 @click.option('--unbiased', '-u', 'unbiased', is_flag=True, type=bool, default=False)
 @click.option('--output', '-o', 'output', is_flag=True, type=bool, default=False)
 @click.option('--loss', '-l', 'loss', type=click.Choice(['click', 'full']), default='full')
-@click.option('--position_bias', '-b', 'eta', type=click.Choice(['mle', '0', '0.5', '1', '1.5', '2', '2.5', '3']),
+@click.option('--position_bias', '-b', 'eta', type=str, #type=click.Choice(['mle', '0', '0.5', '1', '1.5', '2', '2.5', '3']),
               default='mle')
 def parse(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss, eta):
   train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss, eta)
