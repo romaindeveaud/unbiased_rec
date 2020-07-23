@@ -232,7 +232,7 @@ def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, outpu
   logging.info('Number of users: {}; number of items: {}.'.format(num_users, num_items))
   logging.info('Training/test sets are composed of {}/{} sessions.'.format(len(train_), len(test_)))
 
-  model = ExplicitMF(num_dimensions, num_epochs, num_users, num_items, unbiased, eta, loss_type=loss,
+  model = ExplicitMF(num_dimensions, num_epochs, num_users, num_items, unbiased, loss_type=loss, eta=eta,
                      name=Path(file).stem.split('_')[0], output=output)
   model.train(train_)
   model.test(test_)
