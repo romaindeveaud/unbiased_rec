@@ -70,8 +70,15 @@ def ap_(pred_ranking, true_ranking):
   return ap
 
 
+def position_bias(rank, eta='mle'):
+  if eta == 'mle':
+    return config.observation_propensities[rank-1]
+  else:
+    return (1.0/rank)**eta
+
+
 class ExplicitMF:
-  def __init__(self, num_dim, num_epochs, num_users, num_items, unbiased, loss_type,
+  def __init__(self, num_dim, num_epochs, num_users, num_items, unbiased, loss_type, eta,
                name=None, output=False, learning_rate=.005, reg=.02):
     self.num_dim = num_dim
     self.num_epochs = num_epochs
@@ -93,6 +100,7 @@ class ExplicitMF:
     self.name = name
     self.output = output
     self.loss_type = loss_type
+    self.eta = eta
 
   def train(self, dataset):
     """ Applying Stochastic Gradient Descent to train a Matrix Factorisation model.
@@ -114,13 +122,15 @@ class ExplicitMF:
           rank  = interaction.rank
 
           if self.unbiased and self.loss_type == 'click':
-            y_true = y_true / config.observation_propensities[rank-1]
+            #y_true = y_true / config.observation_propensities[rank-1]
+            y_true = y_true / position_bias(rank, self.eta)
 
           dot_ = np.dot(self.user_embeddings[u], self.item_embeddings[i])
           err  = y_true - (dot_ + self.user_bias[u] + self.item_bias[i])
 
           if self.unbiased and self.loss_type == 'full':
-            err /= config.observation_propensities[rank-1]
+            #err /= config.observation_propensities[rank-1]
+            err /= position_bias(rank, self.eta)
 
           # Update step
           self.user_bias[u] += self.learning_rate * (err - self.regularisation * self.user_bias[u])
@@ -174,8 +184,12 @@ class ExplicitMF:
                                                                                 np.mean(ndcgs), np.mean(aps)))
 
     if self.output:
-      with open('output/all_days_epochs{}'.format('_unbiased_{}.csv'.format(self.loss_type) if self.unbiased else '.csv'), 'a') as f:
-        f.write('{},{},{},{},{},{},{}\n'.format(self.name, self.num_epochs, self.num_dim, np.mean(rrs), np.mean(recalls), np.mean(ndcgs), np.mean(aps)))
+      if self.eta == 'mle':
+        with open('output/all_days_epochs{}'.format('_unbiased_{}.csv'.format(self.loss_type) if self.unbiased else '.csv'), 'a') as f:
+          f.write('{},{},{},{},{},{},{}\n'.format(self.name, self.num_epochs, self.num_dim, np.mean(rrs), np.mean(recalls), np.mean(ndcgs), np.mean(aps)))
+      else:
+        with open('output/all_days_position_bias_{}.csv'.format(self.loss_type), 'a') as f:
+          f.write('{},{},{},{},{},{},{},{}\n'.format(self.name, self.eta, self.num_epochs, self.num_dim, np.mean(rrs), np.mean(recalls), np.mean(ndcgs), np.mean(aps)))
 
 
 def _split_rankings_train_test(session_rankings, train_test_split, is_random=True):
@@ -232,6 +246,7 @@ def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, outpu
 @click.option('--unbiased', '-u', 'unbiased', is_flag=True, type=bool, default=False)
 @click.option('--output', '-o', 'output', is_flag=True, type=bool, default=False)
 @click.option('--loss', '-l', 'loss', type=click.Choice(['click', 'full']), default='full')
+@click.option('--position_bias', '-b', 'position_bias', type=click.Choice(['mle', 0, 0.5, 1, 1.5, 2]), default='mle')
 def parse(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss):
   train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss)
 
