@@ -201,7 +201,7 @@ def _split_rankings_train_test(session_rankings, train_test_split, is_random=Tru
   return session_rankings[:split_index], session_rankings[split_index:]
 
 
-def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss):
+def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss, eta):
   logging.info('Training basic MF with K={}. Input file: {}'.format(num_dimensions, file))
 
   outfile = Path(config.DATASET_OUTPUT_FOLDER + Path(file).stem + '_sessions_nosampling.pkl')
@@ -232,7 +232,7 @@ def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, outpu
   logging.info('Number of users: {}; number of items: {}.'.format(num_users, num_items))
   logging.info('Training/test sets are composed of {}/{} sessions.'.format(len(train_), len(test_)))
 
-  model = ExplicitMF(num_dimensions, num_epochs, num_users, num_items, unbiased, loss_type=loss,
+  model = ExplicitMF(num_dimensions, num_epochs, num_users, num_items, unbiased, eta, loss_type=loss,
                      name=Path(file).stem.split('_')[0], output=output)
   model.train(train_)
   model.test(test_)
@@ -246,9 +246,9 @@ def train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, outpu
 @click.option('--unbiased', '-u', 'unbiased', is_flag=True, type=bool, default=False)
 @click.option('--output', '-o', 'output', is_flag=True, type=bool, default=False)
 @click.option('--loss', '-l', 'loss', type=click.Choice(['click', 'full']), default='full')
-@click.option('--position_bias', '-b', 'position_bias', type=click.Choice(['mle', 0, 0.5, 1, 1.5, 2]), default='mle')
-def parse(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss):
-  train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss)
+@click.option('--position_bias', '-b', 'eta', type=click.Choice(['mle', 0, 0.5, 1, 1.5, 2]), default='mle')
+def parse(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss, eta):
+  train_mf(file, train_test_split, num_dimensions, num_epochs, unbiased, output, loss, eta)
 
 
 if __name__ == '__main__':
